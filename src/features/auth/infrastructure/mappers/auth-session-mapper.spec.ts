@@ -1,38 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Session } from '@supabase/supabase-js'
 
 import { Email } from '@shared/domain/value-objects/email'
+import { AuthSession } from '@features/auth/domain/entities/auth-session'
+import { User } from '@features/auth/domain/entities/user'
 import { UserRole } from '@features/auth/domain/value-objects/user-role'
-import { toDomain, toDTO } from '@features/auth/infrastructure/mappers/auth-session-mapper'
+import { AuthSessionMapper } from '@features/auth/infrastructure/mappers/auth-session-mapper'
 
-describe('authSessionMapper', () => {
-  it('maps a provider session to DTO', () => {
-    const session = {
-      user: {
-        id: 'user-1',
-        email: 'agent@example.com',
-        user_metadata: {
-          full_name: 'Support Agent',
-          role: UserRole.SupportAgent,
-        },
-        app_metadata: {},
-      },
-      access_token: 'access-token',
-      refresh_token: 'refresh-token',
-      expires_in: 3600,
-      token_type: 'bearer',
-    } as unknown as Session
-
-    expect(toDTO(session)).toEqual({
-      userId: 'user-1',
-      email: 'agent@example.com',
-      fullName: 'Support Agent',
-      role: 'support_agent',
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-    })
-  })
-
+describe('AuthSessionMapper', () => {
   it('maps a DTO to a domain session and falls back to support agent for unknown roles', () => {
     const dto = {
       userId: 'user-1',
@@ -43,7 +17,7 @@ describe('authSessionMapper', () => {
       refreshToken: 'refresh-token',
     }
 
-    const session = toDomain(dto)
+    const session = AuthSessionMapper.toDomain(dto)
 
     expect(session.user.id).toBe('user-1')
     expect(session.user.email).toEqual(Email.create('agent@example.com'))
@@ -52,5 +26,27 @@ describe('authSessionMapper', () => {
     expect(session.user.role).toBe(UserRole.SupportAgent)
     expect(session.accessToken).toBe('access-token')
     expect(session.refreshToken).toBe('refresh-token')
+  })
+
+  it('maps a domain session to a DTO', () => {
+    const session = new AuthSession(
+      new User(
+        'user-1',
+        Email.create('agent@example.com'),
+        'Support Agent',
+        UserRole.SupportAgent,
+      ),
+      'access-token',
+      'refresh-token',
+    )
+
+    expect(AuthSessionMapper.toDTO(session)).toEqual({
+      userId: 'user-1',
+      email: 'agent@example.com',
+      fullName: 'Support Agent',
+      role: UserRole.SupportAgent,
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    })
   })
 })

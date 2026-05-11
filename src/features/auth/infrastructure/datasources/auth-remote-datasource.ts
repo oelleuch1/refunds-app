@@ -1,6 +1,7 @@
+import type { Session } from '@supabase/supabase-js'
+
 import { supabase } from '@shared/infrastructure/supabase/supabase'
 import type { AuthSessionDTO } from '@features/auth/infrastructure/dto/auth-session-dto'
-import { toDTO } from '@features/auth/infrastructure/mappers/auth-session-mapper'
 
 export class AuthRemoteDatasource {
   async signIn(email: string, password: string): Promise<AuthSessionDTO> {
@@ -17,7 +18,7 @@ export class AuthRemoteDatasource {
       throw new Error('Sign-in succeeded without an active session.')
     }
 
-    return toDTO(data.session)
+    return this.toAuthSessionDTO(data.session)
   }
 
   async signUp(email: string, password: string, fullName: string, role: string): Promise<AuthSessionDTO | null> {
@@ -36,7 +37,7 @@ export class AuthRemoteDatasource {
       throw new Error(error.message)
     }
 
-    return data.session ? toDTO(data.session) : null
+    return data.session ? this.toAuthSessionDTO(data.session) : null
   }
 
   async signOut(): Promise<void> {
@@ -54,6 +55,17 @@ export class AuthRemoteDatasource {
       throw new Error(error.message)
     }
 
-    return data.session ? toDTO(data.session) : null
+    return data.session ? this.toAuthSessionDTO(data.session) : null
+  }
+
+  private toAuthSessionDTO(session: Session): AuthSessionDTO {
+    return {
+      userId: session.user.id,
+      email: session.user.email ?? '',
+      fullName: session.user.user_metadata.full_name,
+      role: session.user.user_metadata.role,
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+    }
   }
 }

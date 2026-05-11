@@ -1,4 +1,4 @@
-import { PasswordValidator } from "../services/password-validator"
+import { PasswordValidator } from "../services/password-validator/password-validator"
 
 export class Password {
   private constructor(public readonly value: string) { }
