@@ -25,7 +25,7 @@ export class AppRoot extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback()
-    void this.restoreSession()
+    this.restoreSession()
   }
 
   protected render() {

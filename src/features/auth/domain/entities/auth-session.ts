@@ -5,5 +5,5 @@ export class AuthSession {
     public readonly user: User,
     public readonly accessToken: string,
     public readonly refreshToken: string,
-  ) {}
+  ) { }
 }
