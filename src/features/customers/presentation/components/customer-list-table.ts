@@ -1,0 +1,162 @@
+import { html, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import { tailwindStyles } from '@styles/tailwind-styles';
+import { ChevronLeft, ChevronRight } from 'lucide';
+import '@shared/presentation/components/app-icon';
+
+interface CustomerData {
+  id: string;
+  name: string;
+  email: string;
+  initials: string;
+  status: 'Active' | 'Flagged' | 'Blocked';
+  risk: 'Low' | 'Med' | 'High';
+  returns: number;
+  returnRate: string;
+}
+
+const FAKE_CUSTOMERS: CustomerData[] = [
+  {
+    id: 'CUS-8832',
+    name: 'Sophie Laurent',
+    email: 's.laurent@email.fr',
+    initials: 'SL',
+    status: 'Active',
+    risk: 'Low',
+    returns: 2,
+    returnRate: '11%'
+  },
+  {
+    id: 'CUS-6104',
+    name: 'Pierre Laurent-Dubois',
+    email: 'p.laurentdubois@mail.com',
+    initials: 'PL',
+    status: 'Flagged',
+    risk: 'Med',
+    returns: 7,
+    returnRate: '22%'
+  },
+  {
+    id: 'CUS-3291',
+    name: 'Marc Laurent',
+    email: 'm.laurent@proton.me',
+    initials: 'ML',
+    status: 'Blocked',
+    risk: 'High',
+    returns: 22,
+    returnRate: '39%'
+  }
+];
+
+@customElement('customer-list-table')
+export class CustomerListTable extends LitElement {
+  static styles = [tailwindStyles];
+
+  protected render() {
+    return html`
+      <div class="bg-surface-panel/40 border border-white/5 rounded-2xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-white/5">
+                <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider">Customer</th>
+                <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider">ID</th>
+                <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider">Status</th>
+                <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider">Risk</th>
+                <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider text-center">Returns</th>
+                <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider text-right">Return Rate</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+              ${FAKE_CUSTOMERS.map(customer => this.renderRow(customer))}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="px-6 py-4 flex items-center justify-between border-t border-white/5 bg-surface-card/30">
+          <div class="text-sm text-text-dim">
+            Showing <span class="text-text-primary font-medium">1–3</span> of <span class="text-text-primary font-medium">3</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="p-2 rounded-lg border border-white/5 text-text-dim hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+              <app-icon .icon=${ChevronLeft} .size=${18}></app-icon>
+            </button>
+            <button class="w-9 h-9 flex items-center justify-center rounded-lg bg-brand text-white text-sm font-bold shadow-brand transition-all">
+              1
+            </button>
+            <button class="p-2 rounded-lg border border-white/5 text-text-dim hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+              <app-icon .icon=${ChevronRight} .size=${18}></app-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderRow(customer: CustomerData) {
+    return html`
+      <tr class="hover:bg-white/[0.02] transition-colors group">
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-full bg-brand-gradient flex items-center justify-center text-white text-sm font-bold shadow-brand/20">
+              ${customer.initials}
+            </div>
+            <div class="flex flex-col">
+              <span class="text-text-primary font-semibold group-hover:text-white transition-colors">${customer.name}</span>
+              <span class="text-text-dim text-xs">${customer.email}</span>
+            </div>
+          </div>
+        </td>
+        <td class="px-6 py-4 text-sm text-text-secondary font-medium font-mono">${customer.id}</td>
+        <td class="px-6 py-4">
+          ${this.renderStatusBadge(customer.status)}
+        </td>
+        <td class="px-6 py-4">
+          ${this.renderRiskBadge(customer.risk)}
+        </td>
+        <td class="px-6 py-4 text-sm text-text-primary text-center font-semibold">${customer.returns}</td>
+        <td class="px-6 py-4 text-sm text-text-primary text-right font-semibold">${customer.returnRate}</td>
+      </tr>
+    `;
+  }
+
+  private renderStatusBadge(status: string) {
+    const configs = {
+      'Active': 'bg-success-bg text-success border-success/20',
+      'Flagged': 'bg-warning-bg text-warning border-warning/20',
+      'Blocked': 'bg-error-bg text-error border-error/20'
+    };
+    const dotColors = {
+      'Active': 'bg-success',
+      'Flagged': 'bg-warning',
+      'Blocked': 'bg-error'
+    };
+
+    const config = configs[status as keyof typeof configs];
+    const dotColor = dotColors[status as keyof typeof dotColors];
+
+    return html`
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[0.7rem] font-bold uppercase tracking-wider ${config}">
+        <span class="w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse"></span>
+        ${status}
+      </span>
+    `;
+  }
+
+  private renderRiskBadge(risk: string) {
+    const configs = {
+      'Low': 'bg-success-bg text-success border-success/20',
+      'Med': 'bg-warning-bg text-warning border-warning/20',
+      'High': 'bg-error-bg text-error border-error/20'
+    };
+
+    const config = configs[risk as keyof typeof configs];
+
+    return html`
+      <span class="inline-flex items-center px-3 py-1 rounded-lg border text-xs font-bold ${config}">
+        ${risk}
+      </span>
+    `;
+  }
+}
