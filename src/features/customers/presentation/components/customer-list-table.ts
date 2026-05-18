@@ -5,7 +5,7 @@
  * - emit page-change on pagination click; fix "Showing X–Y of Z"
  * - Map Customer fields (fullName, email); fix or drop returns/returnRate columns
  */
-import { html, LitElement } from "lit";
+import { html, LitElement, type PropertyValues } from "lit";
 import { customElement, state, property } from "lit/decorators.js";
 import { tailwindStyles } from "@styles/tailwind-styles";
 import { ChevronLeft, ChevronRight } from "lucide";
@@ -72,13 +72,11 @@ export class CustomerListTable extends LitElement {
   private to: number = 9;
 
   @property()
-  searchQuery: { query: string; column: string };
+  searchQuery: { query: string; column: string } = { query: "", column: "all" };
 
   static styles = [tailwindStyles];
 
   async getCustomers() {
-    console.log({ searchQuery: this.searchQuery });
-
     const {
       data: customers,
       error,
@@ -86,7 +84,9 @@ export class CustomerListTable extends LitElement {
     } = await supabase
       .from("customers")
       .select("*", { count: "exact" })
-      .range(this.from, this.to);
+      .or(`email.ilike.%${this.searchQuery.query}%,full_name.ilike.%${this.searchQuery.query}%`)
+      .eq(this.searchQuery.column, this.searchQuery.query)
+      .range(this.from, this.to)
 
     if (error) {
       throw new Error(`Error fetching customers: ${error.message}`);
@@ -98,12 +98,6 @@ export class CustomerListTable extends LitElement {
     return customers;
   }
 
-  async connectedCallback() {
-    super.connectedCallback();
-    this.customersList = await this.getCustomers();
-    console.log(this.customersList);
-  }
-
   async paginate(page) {
     // page 1: 0 =< 9
     // page 2: 10 => 19
@@ -113,12 +107,15 @@ export class CustomerListTable extends LitElement {
     this.customersList = await this.getCustomers();
   }
 
-  // click on page 1°0;
-
-  // page 1: 0 =< 9
-  // page 2: 10 => 19
+  async update(changedProperties): Promise<void> {
+    if (changedProperties.has("searchQuery")) {
+      console.log('Search query changed:', this.searchQuery);
+      this.customersList = await this.getCustomers();
+    }
+  }
 
   protected render() {
+    console.log('render');
     return html`
       <div
         class="bg-surface-panel/40 border border-white/5 rounded-2xl overflow-hidden shadow-sm"
@@ -181,14 +178,14 @@ export class CustomerListTable extends LitElement {
               <app-icon .icon=${ChevronLeft} .size=${18}></app-icon>
             </button>
             ${Array.from({ length: this.pagesCount }).map(
-              (_, index) =>
-                html` <button
+      (_, index) =>
+        html` <button
                   @click=${() => this.paginate(index + 1)}
                   class="w-9 h-9 flex items-center justify-center rounded-lg bg-brand text-white text-sm font-bold shadow-brand transition-all"
                 >
                   ${index + 1}
                 </button>`,
-            )}
+    )}
 
             <button
               class="p-2 rounded-lg border border-white/5 text-text-dim hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"

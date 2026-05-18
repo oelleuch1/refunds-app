@@ -11,9 +11,6 @@ import { customElement, state } from "lit/decorators.js";
 import { tailwindStyles } from "@styles/tailwind-styles";
 import { ArrowUpDown } from "lucide";
 
-import { USE_CASES } from "@app/dependencies";
-import type { Customer } from "@features/customers/domain/entities/customer";
-
 import "@features/customers/presentation/components/customer-search-bar";
 import "@features/customers/presentation/components/customer-list-table";
 import "@shared/presentation/components/app-icon";
@@ -21,11 +18,6 @@ import "@shared/presentation/components/app-icon";
 @customElement("app-customers-page")
 export class CustomersPage extends LitElement {
   static styles = [tailwindStyles];
-
-  private getCustomersUseCase = USE_CASES.customers.getCustomers;
-
-  @state()
-  private customers: Customer[] = [];
 
   @state()
   private searchQuery: { query: string; column: string } = {
@@ -36,6 +28,8 @@ export class CustomersPage extends LitElement {
   private onSearch(e: CustomEvent) {
     this.searchQuery = e.detail;
   }
+
+
 
   protected render() {
     return html`

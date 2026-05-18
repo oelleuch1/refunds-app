@@ -22,7 +22,7 @@ export class CustomerSearchBar extends LitElement {
   static styles = [tailwindStyles];
 
   private onInput(e: Event) {
-    this.query = e.target.value;
+    this.query = e?.target?.value ?? '';
     this.emit();
   }
 
@@ -33,7 +33,7 @@ export class CustomerSearchBar extends LitElement {
 
   private emit() {
     this.dispatchEvent(
-      new CustomeEvent("search", {
+      new CustomEvent("search", {
         detail: { query: this.query, column: this.selectedMethod },
       }),
     );
@@ -60,9 +60,7 @@ export class CustomerSearchBar extends LitElement {
             />
           </div>
           <button
-            this.emit.query
-            }
-            })}
+            @click=${this.emit}
             class="bg-brand hover:bg-brand-dark text-white px-6 py-3.5 rounded-xl flex items-center gap-2 font-semibold shadow-brand transition-all active:scale-95"
           >
             <app-icon .icon=${Search} .size=${18} stroke-width="2.5"></app-icon>
@@ -73,36 +71,32 @@ export class CustomerSearchBar extends LitElement {
         <div class="flex flex-wrap gap-3">
           <button
             class="flex items-center gap-2 px-4 py-2 rounded-full bg-brand/15 border border-brand/30 text-brand-light text-sm font-medium transition-colors"
-            ()=""
+            @click=${() => this.updateMethod("all")} *
           >
-            @click=${this.updateMethod("all")} >
             <app-icon .icon=${Search} .size=${14}></app-icon>
             All
           </button>
 
           <button
             class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-card border border-white/5 text-text-secondary text-sm font-medium hover:bg-white/5 transition-colors"
-            ()=""
+            @click=${() => this.updateMethod("name")} 
           >
-            @click=${this.updateMethod("name")} >
             <app-icon .icon=${User} .size=${14}></app-icon>
             By name
           </button>
 
           <button
             class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-card border border-white/5 text-text-secondary text-sm font-medium hover:bg-white/5 transition-colors"
-         { this.updateMethod("email")}}
+            @click=${() => this.updateMethod("email")} 
           >
- d("email")} >
             <app-icon .icon=${Mail} .size=${14}></app-icon>
             By email
           </button>
 
           <button
             class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-card border border-white/5 text-text-secondary text-sm font-medium hover:bg-white/5 transition-colors"
-            ()=""
+            @click=${() => this.updateMethod("id")}
           >
-            @click=${this.updateMethod("id")} >
             <app-icon .icon=${Hash} .size=${14}></app-icon>
             By customer ID
           </button>
