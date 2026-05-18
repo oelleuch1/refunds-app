@@ -1,3 +1,9 @@
+/**
+ * CUSTOMER SEARCH — step 2
+ * - Add searchCustomers({ query, field, page, pageSize }) → { items, total }
+ * - Filters: ilike on full_name / email / id, or .or() for "all"
+ * - .select('*', { count: 'exact' }).range(from, to)
+ */
 import type { CustomerDTO } from "@features/customers/infrastructure/dtos/customer-dto";
 import { supabase } from '@shared/infrastructure/supabase/supabase'
 

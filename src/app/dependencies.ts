@@ -1,3 +1,8 @@
+/**
+ * CUSTOMER SEARCH — step 5
+ * - Import SearchCustomersUseCase
+ * - Add USE_CASES.customers.searchCustomers
+ */
 import { RestoreSessionUseCase } from '@features/auth/application/use-cases/restore-session/restore-session-use-case'
 import { SignInUseCase } from '@features/auth/application/use-cases/sign-in/sign-in-use-case'
 import { SignUpUseCase } from '@features/auth/application/use-cases/sign-up/sign-up-use-case'
