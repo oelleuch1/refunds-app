@@ -14,6 +14,7 @@ import { customElement, property } from 'lit/decorators.js'
 
 import { DASHBOARD_PATH } from '@features/dashboard/presentation/dashboard.routes'
 import { CUSTOMERS_PATH } from '@features/customers/presentation/customers.routes'
+import { ORDERS_PATH } from '@features/orders/presentation/orders.routes'
 import { AppRouter } from '@app/app.router'
 import { appStateContext, initialAppState, type AppState } from '@shared/presentation/state/app-state-context'
 import { tailwindStyles } from '@styles/tailwind-styles'
@@ -38,7 +39,7 @@ const primarySections: NavSection[] = [
     items: [
       { label: 'Dashboard', path: DASHBOARD_PATH, icon: Gauge },
       { label: 'Customer search', icon: Search, path: CUSTOMERS_PATH },
-      { label: 'Orders', icon: ClipboardList },
+      { label: 'Orders', icon: ClipboardList, path: ORDERS_PATH },
       { label: 'Returns', badge: 4, icon: RefreshCcw },
     ],
   },

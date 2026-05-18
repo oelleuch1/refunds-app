@@ -4,6 +4,7 @@ import { html, type ReactiveControllerHost } from 'lit'
 import { authRoutes } from '@features/auth/presentation/auth.routes'
 import { dashboardRoutes } from '@features/dashboard/presentation/dashboard.routes'
 import { customersRoutes } from '@features/customers/presentation/customers.routes'
+import { ordersRoutes } from '@features/orders/presentation/orders.routes'
 
 const routes: RouteConfig[] = [
   {
@@ -12,7 +13,8 @@ const routes: RouteConfig[] = [
   },
   ...authRoutes,
   ...dashboardRoutes,
-  ...customersRoutes
+  ...customersRoutes,
+  ...ordersRoutes
 ]
 
 export class AppRouter {

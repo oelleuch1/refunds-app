@@ -2,6 +2,8 @@ import { html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { tailwindStyles } from '@styles/tailwind-styles';
 import { ChevronLeft, ChevronRight } from 'lucide';
+import { AppRouter } from '@app/app.router';
+import { CUSTOMERS_PATH } from '../customers.routes';
 import '@shared/presentation/components/app-icon';
 
 interface CustomerData {
@@ -65,6 +67,7 @@ export class CustomerListTable extends LitElement {
                 <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider">Risk</th>
                 <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider text-center">Returns</th>
                 <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider text-right">Return Rate</th>
+                <th class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider text-right"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-white/5">
@@ -117,6 +120,14 @@ export class CustomerListTable extends LitElement {
         </td>
         <td class="px-6 py-4 text-sm text-text-primary text-center font-semibold">${customer.returns}</td>
         <td class="px-6 py-4 text-sm text-text-primary text-right font-semibold">${customer.returnRate}</td>
+        <td class="px-6 py-4 text-right">
+          <button 
+            @click=${() => AppRouter.navigate(`${CUSTOMERS_PATH}/${customer.id}`)}
+            class="text-brand-light hover:text-brand font-semibold text-sm transition-colors"
+          >
+            View →
+          </button>
+        </td>
       </tr>
     `;
   }

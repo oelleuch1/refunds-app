@@ -44,7 +44,7 @@ export class AppDashboardPage extends LitElement {
             <button class="min-h-[44px] px-4 rounded-xl font-bold cursor-pointer border border-white/10 bg-white/5 text-text-primary hover:bg-white/10" type="button" ?disabled=${this.isSigningOut} @click=${this.handleSignOut}>
               ${this.isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>
-            <button class="min-h-[44px] px-4 rounded-xl font-bold cursor-pointer border-0 bg-brand-gradient text-white shadow-brand hover:opacity-90" type="button">Create return</button>
+            <button class="min-h-[44px] px-4 rounded-xl font-bold cursor-pointer border-0 bg-brand-gradient text-white shadow-brand hover:opacity-90" type="button">New Return</button>
           </div>
         </header>
 
