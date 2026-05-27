@@ -13,9 +13,22 @@ export class OrdersPage extends LitElement {
   static styles = [tailwindStyles];
 
   @state()
-  private ordersList = [];
+  private orders: any[] = [];
+
+  @state()
+  private totalOrders: number = 0;
+
+  @state()
+  private currentPage: number = 1;
+
+  @state()
+  private pageSize: number = 10;
+
+  @state()
+  isLoading: boolean = false;
 
   async getOrders() {
+    this.isLoading = true;
     const {
       data: orders,
       error,
@@ -23,16 +36,27 @@ export class OrdersPage extends LitElement {
     } = await supabase
       .from("orders")
       .select("*", { count: "exact" })
-      .range(0, 9);
+      .range(
+        (this.currentPage - 1) * this.pageSize,
+        (this.currentPage - 1) * this.pageSize + this.pageSize - 1,
+      );
+
+    this.isLoading = false;
 
     if (error) {
-      throw new Error(`Error fetching orders: ${error.message}`);
+      console.error("Error fetching orders:", error);
+      return [];
     }
-    this.ordersList = orders;
-    console.log("this.ordersList", this.ordersList);
+    this.orders = orders;
+    this.totalOrders = count ?? 0;
   }
 
-  firstUpdated() {
+  protected firstUpdated(): void {
+    this.getOrders();
+  }
+
+  private updatePage(newPage: number) {
+    this.currentPage = newPage;
     this.getOrders();
   }
 
@@ -74,7 +98,14 @@ export class OrdersPage extends LitElement {
         </div>
 
         <!-- Data Table -->
-        <order-list-table .orders=${this.ordersList}></order-list-table>
+        <order-list-table
+          .orders=${this.orders}
+          .totalOrders=${this.totalOrders}
+          .hasNextPage=${this.currentPage * this.pageSize < this.totalOrders}
+          .hasPreviousPage=${this.currentPage > 1}
+          .isLoading=${this.isLoading}
+          @page-change=${(e: CustomEvent) => this.updatePage(e.detail.page)}
+        ></order-list-table>
       </div>
     `;
   }

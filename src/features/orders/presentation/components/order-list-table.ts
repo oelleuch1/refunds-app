@@ -1,61 +1,29 @@
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { tailwindStyles } from "@styles/tailwind-styles";
-import { ChevronLeft, ChevronRight } from "lucide";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide";
 import { AppRouter } from "@app/app.router";
 import { ORDERS_PATH } from "../orders.routes";
 import "@shared/presentation/components/app-icon";
-
-interface OrderData {
-  id: string;
-  customerName: string;
-  date: string;
-  total: string;
-  payment: string;
-  deliveryStatus: "Delivered" | "Cancelled" | "In Transit";
-}
-
-const FAKE_ORDERS: OrderData[] = [
-  {
-    id: "ORD-44821",
-    customerName: "Sophie Laurent",
-    date: "8 May 2026",
-    total: "€247.00",
-    payment: "Visa ••4821",
-    deliveryStatus: "Delivered",
-  },
-  {
-    id: "ORD-42190",
-    customerName: "Sophie Laurent",
-    date: "19 Apr 2026",
-    total: "€89.99",
-    payment: "Visa ••4821",
-    deliveryStatus: "Delivered",
-  },
-  {
-    id: "ORD-39844",
-    customerName: "Sophie Laurent",
-    date: "2 Mar 2026",
-    total: "€164.50",
-    payment: "MC ••0921",
-    deliveryStatus: "Delivered",
-  },
-  {
-    id: "ORD-35120",
-    customerName: "Sophie Laurent",
-    date: "14 Jan 2026",
-    total: "€42.00",
-    payment: "Visa ••4821",
-    deliveryStatus: "Cancelled",
-  },
-];
 
 @customElement("order-list-table")
 export class OrderListTable extends LitElement {
   static styles = [tailwindStyles];
 
-  @property()
-  public orders = [];
+  @property({ type: Array })
+  orders: any[] = [];
+
+  @property({ type: Number })
+  totalOrders: number = 0;
+
+  @property({ type: Boolean })
+  hasNextPage: boolean = false;
+
+  @property({ type: Boolean })
+  hasPreviousPage: boolean = false;
+
+  @property({ type: Boolean })
+  isLoading: boolean = false;
 
   protected render() {
     return html`
@@ -101,6 +69,17 @@ export class OrderListTable extends LitElement {
                 ></th>
               </tr>
             </thead>
+            ${this.isLoading
+              ? html` <div
+                  class="flex items-center justify-center w-full py-10"
+                >
+                  <app-icon
+                    .icon=${Loader2}
+                    .size=${24}
+                    class="animate-spin text-text-dim"
+                  ></app-icon>
+                </div>`
+              : null}
             <tbody class="divide-y divide-white/5">
               ${this.orders.map((order) => this.renderRow(order))}
             </tbody>
@@ -115,22 +94,32 @@ export class OrderListTable extends LitElement {
             Showing <span class="text-text-primary font-medium">1–4</span> of
             <span class="text-text-primary font-medium">4</span>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 overflow-x-auto">
             <button
               class="p-2 rounded-lg border border-white/5 text-text-dim hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              disabled
+              ?disabled=${!this.hasPreviousPage}
             >
               <app-icon .icon=${ChevronLeft} .size=${18}></app-icon>
             </button>
-            ${this.pages.map(
-              (page) =>
-                html`<button
+            ${Array.from(
+              { length: Math.ceil(this.totalOrders / 10) },
+              (_, i) => i + 1,
+            ).map(
+              (page) => html`
+                <button
                   class="w-9 h-9 flex items-center justify-center rounded-lg bg-brand text-white text-sm font-bold shadow-brand transition-all"
-                ></button>`,
+                  @click=${() =>
+                    this.dispatchEvent(
+                      new CustomEvent("page-change", { detail: { page } }),
+                    )}
+                >
+                  ${page}
+                </button>
+              `,
             )}
             <button
               class="p-2 rounded-lg border border-white/5 text-text-dim hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              disabled
+              ?disabled=${!this.hasNextPage}
             >
               <app-icon .icon=${ChevronRight} .size=${18}></app-icon>
             </button>
@@ -140,7 +129,7 @@ export class OrderListTable extends LitElement {
     `;
   }
 
-  private renderRow(order: OrderData) {
+  private renderRow(order: any) {
     return html`
       <tr class="hover:bg-white/[0.02] transition-colors group">
         <td class="px-6 py-4 text-sm text-text-primary font-medium font-mono">
