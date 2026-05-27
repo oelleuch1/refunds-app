@@ -1,4 +1,4 @@
-import { html, LitElement } from "lit";
+import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { tailwindStyles } from "@styles/tailwind-styles";
 import { ChevronLeft, ChevronRight } from "lucide";
@@ -6,65 +6,28 @@ import { AppRouter } from "@app/app.router";
 import { ORDERS_PATH } from "../orders.routes";
 import "@shared/presentation/components/app-icon";
 
-interface OrderData {
-  id: string;
-  customerName: string;
-  date: string;
-  total: string;
-  payment: string;
-  deliveryStatus: "Delivered" | "Cancelled" | "In Transit";
-}
-
-const FAKE_ORDERS: OrderData[] = [
-  {
-    id: "ORD-44821",
-    customerName: "Sophie Laurent",
-    date: "8 May 2026",
-    total: "€247.00",
-    payment: "Visa ••4821",
-    deliveryStatus: "Delivered",
-  },
-  {
-    id: "ORD-42190",
-    customerName: "Sophie Laurent",
-    date: "19 Apr 2026",
-    total: "€89.99",
-    payment: "Visa ••4821",
-    deliveryStatus: "Delivered",
-  },
-  {
-    id: "ORD-39844",
-    customerName: "Sophie Laurent",
-    date: "2 Mar 2026",
-    total: "€164.50",
-    payment: "MC ••0921",
-    deliveryStatus: "Delivered",
-  },
-  {
-    id: "ORD-35120",
-    customerName: "Sophie Laurent",
-    date: "14 Jan 2026",
-    total: "€42.00",
-    payment: "Visa ••4821",
-    deliveryStatus: "Cancelled",
-  },
-];
+import type { OrderData } from "../pages/orders-page";
 
 @customElement("order-list-table")
 export class OrderListTable extends LitElement {
   static styles = [tailwindStyles];
 
-  @property()
-  public orders = [];
+  // property({ type: String, Number, Array, Object, Boolean })
 
-  @property()
+  // @property({ type: Object })
+  // public selectedOrder: OrderData | null = null;
+
+  @property({ type: Array })
+  public orders: OrderData[] = [];
+
+  @property({ type: Number })
   public pagesCount = 0;
 
-  private emitPagination(page: number) {
+  private emitPagination(page: number): void {
     this.dispatchEvent(new CustomEvent("pagination", { detail: { page } }));
   }
 
-  protected render() {
+  protected render(): TemplateResult {
     return html`
       <div
         class="bg-surface-panel/40 border border-white/5 rounded-2xl overflow-hidden shadow-sm"
@@ -150,7 +113,7 @@ export class OrderListTable extends LitElement {
     `;
   }
 
-  private renderRow(order: OrderData) {
+  private renderRow(order: OrderData): TemplateResult {
     return html`
       <tr class="hover:bg-white/[0.02] transition-colors group">
         <td class="px-6 py-4 text-sm text-text-primary font-medium font-mono">
@@ -163,7 +126,7 @@ export class OrderListTable extends LitElement {
           ${order.created_at}
         </td>
         <td class="px-6 py-4 text-sm text-text-primary font-bold font-mono">
-          ${order.total_amount}
+          ${html`${this.renderAmount(order.total_amount)}`}
         </td>
         <td class="px-6 py-4 text-sm text-text-secondary">
           ${order.payment_method}
@@ -183,7 +146,14 @@ export class OrderListTable extends LitElement {
     `;
   }
 
-  private renderDeliveryBadge(status: string) {
+  private renderAmount(amount: string): string {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
+    }).format(Number.parseFloat(amount));
+  }
+
+  private renderDeliveryBadge(status: string): TemplateResult {
     const configs = {
       Delivered: "bg-success-bg text-success border-success/20",
       Cancelled: "bg-error-bg text-error border-error/20",

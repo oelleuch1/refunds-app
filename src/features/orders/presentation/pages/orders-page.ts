@@ -8,12 +8,21 @@ import "@features/orders/presentation/components/order-list-table";
 import "@shared/presentation/components/app-icon";
 import { supabase } from "@shared/infrastructure/supabase/supabase";
 
+export interface OrderData {
+  id: string;
+  customer_id: string;
+  created_at: string;
+  total_amount: string;
+  payment_method: string;
+  delivery_status: "Delivered" | "Cancelled" | "In Transit";
+}
+
 @customElement("app-orders-page")
 export class OrdersPage extends LitElement {
   static styles = [tailwindStyles];
 
   @state()
-  private ordersList = [];
+  private ordersList: OrderData[] = [];
 
   @state()
   private pagesCount = 0;
@@ -24,7 +33,7 @@ export class OrdersPage extends LitElement {
   @state()
   private to: number = 9;
 
-  async getOrders() {
+  async getOrders(): Promise<void> {
     const {
       data: orders,
       error,
@@ -38,11 +47,10 @@ export class OrdersPage extends LitElement {
       throw new Error(`Error fetching orders: ${error.message}`);
     }
     this.ordersList = orders;
-    this.pagesCount = Math.ceil(count / 10);
-    console.log("this.ordersList", this.ordersList);
+    this.pagesCount = Math.ceil((count ?? 0) / 10);
   }
 
-  async paginate(page) {
+  async paginate(page: number): Promise<void> {
     this.from = (page - 1) * 10;
     this.to = this.from + 9;
     await this.getOrders();
@@ -93,7 +101,8 @@ export class OrdersPage extends LitElement {
         <order-list-table
           .orders=${this.ordersList}
           .pagesCount=${this.pagesCount}
-          @pagination=${(event) => this.paginate(event.detail.page)}
+          @pagination=${(event: { detail: { page: number } }) =>
+            this.paginate(event.detail.page)}
         ></order-list-table>
       </div>
     `;
