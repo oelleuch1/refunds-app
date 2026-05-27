@@ -98,12 +98,13 @@ export class OrdersPage extends LitElement {
         </div>
 
         <!-- Data Table -->
-        <order-list-table
-          .orders=${this.ordersList}
-          .pagesCount=${this.pagesCount}
+        <app-data-table
+          .rows=${this.ordersList}
+          .columns=${this.columns}
           @pagination=${(event: { detail: { page: number } }) =>
             this.paginate(event.detail.page)}
-        ></order-list-table>
+        >
+        </app-data-table>
       </div>
     `;
   }
