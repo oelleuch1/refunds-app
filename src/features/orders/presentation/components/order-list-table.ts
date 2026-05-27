@@ -57,6 +57,13 @@ export class OrderListTable extends LitElement {
   @property()
   public orders = [];
 
+  @property()
+  public pagesCount = 0;
+
+  private emitPagination(page: number) {
+    this.dispatchEvent(new CustomEvent("pagination", { detail: { page } }));
+  }
+
   protected render() {
     return html`
       <div
@@ -122,11 +129,14 @@ export class OrderListTable extends LitElement {
             >
               <app-icon .icon=${ChevronLeft} .size=${18}></app-icon>
             </button>
-            ${this.pages.map(
-              (page) =>
+            ${Array.from({ length: this.pagesCount }).map(
+              (_, index) =>
                 html`<button
+                  @click=${() => this.emitPagination(index + 1)}
                   class="w-9 h-9 flex items-center justify-center rounded-lg bg-brand text-white text-sm font-bold shadow-brand transition-all"
-                ></button>`,
+                >
+                  ${index + 1}
+                </button>`,
             )}
             <button
               class="p-2 rounded-lg border border-white/5 text-text-dim hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"

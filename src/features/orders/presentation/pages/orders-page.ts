@@ -15,6 +15,15 @@ export class OrdersPage extends LitElement {
   @state()
   private ordersList = [];
 
+  @state()
+  private pagesCount = 0;
+
+  @state()
+  private from: number = 0;
+
+  @state()
+  private to: number = 9;
+
   async getOrders() {
     const {
       data: orders,
@@ -23,13 +32,20 @@ export class OrdersPage extends LitElement {
     } = await supabase
       .from("orders")
       .select("*", { count: "exact" })
-      .range(0, 9);
+      .range(this.from, this.to);
 
     if (error) {
       throw new Error(`Error fetching orders: ${error.message}`);
     }
     this.ordersList = orders;
+    this.pagesCount = Math.ceil(count / 10);
     console.log("this.ordersList", this.ordersList);
+  }
+
+  async paginate(page) {
+    this.from = (page - 1) * 10;
+    this.to = this.from + 9;
+    await this.getOrders();
   }
 
   firstUpdated() {
@@ -74,8 +90,13 @@ export class OrdersPage extends LitElement {
         </div>
 
         <!-- Data Table -->
-        <order-list-table .orders=${this.ordersList}></order-list-table>
+        <order-list-table
+          .orders=${this.ordersList}
+          .pagesCount=${this.pagesCount}
+          @pagination=${(event) => this.paginate(event.detail.page)}
+        ></order-list-table>
       </div>
     `;
   }
 }
+// @pagination which way doest it work exactly, event is targetting the detail which is set in the child? documentation?
