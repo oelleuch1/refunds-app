@@ -1,5 +1,7 @@
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { consume } from "@lit/context";
+import { ordersStoreContext, type OrdersStore } from "../store/orders.store";
 import { tailwindStyles } from "@styles/tailwind-styles";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide";
 import { AppRouter } from "@app/app.router";
@@ -9,6 +11,10 @@ import "@shared/presentation/components/app-icon";
 @customElement("order-list-table")
 export class OrderListTable extends LitElement {
   static styles = [tailwindStyles];
+
+  @consume({ context: ordersStoreContext, subscribe: true })
+  @property()
+  ordersStore?: OrdersStore;
 
   @property({ type: Array })
   orders: any[] = [];
@@ -152,7 +158,7 @@ export class OrderListTable extends LitElement {
         </td>
         <td class="px-6 py-4 text-right">
           <button
-            @click=${() => AppRouter.navigate(`${ORDERS_PATH}/${order.id}`)}
+            @click=${() => this.openOrder(order)}
             class="text-brand-light hover:text-brand font-semibold text-sm transition-colors"
           >
             Open →
@@ -160,6 +166,11 @@ export class OrderListTable extends LitElement {
         </td>
       </tr>
     `;
+  }
+
+  private openOrder(order: any) {
+    this.ordersStore?.actions.updateSelectedOrder(order);
+    AppRouter.navigate(`${ORDERS_PATH}/${order.id}`);
   }
 
   private renderDeliveryBadge(status: string) {
