@@ -1,13 +1,18 @@
 import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { tailwindStyles } from "@styles/tailwind-styles";
-import { ChevronLeft, ChevronRight } from "lucide";
+import { ArrowBigDown, ChevronLeft, ChevronRight, type IconNode } from "lucide";
 import "@shared/presentation/components/app-icon";
 
 export type AppDataTableColumn<T> = {
   label: string;
   key: keyof T;
   render?: (row: T) => TemplateResult;
+};
+
+export type AppDataTableAction<T> = {
+  icon: IconNode;
+  method: (row: T) => void;
 };
 
 @customElement("app-data-table")
@@ -21,6 +26,9 @@ export class AppDataTable<
   // @property({ type: Object })
   // public selectedOrder: OrderData | null = null;
 
+  // property will rec the actions. conditionally add a column when actions are passed
+  // map the actions
+
   @property({ type: Array })
   public rows: T[] = [];
 
@@ -29,6 +37,9 @@ export class AppDataTable<
 
   @property({ type: Number })
   public totalItems = 0;
+
+  @property({ type: Array })
+  public actions: AppDataTableAction[] = [];
 
   private emitPagination(page: number): void {
     this.dispatchEvent(new CustomEvent("pagination", { detail: { page } }));
@@ -51,9 +62,17 @@ export class AppDataTable<
                       ${col.label}
                     </th>`,
                 )}
+                ${this.actions.length
+                  ? html`<th
+                      class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider"
+                    >
+                      Actions
+                    </th>`
+                  : null}
               </tr>
             </thead>
             <tbody class="divide-y divide-white/5">
+              <slot name="loading"> </slot>
               ${this.rows.map((row) => this.renderRow(row))}
             </tbody>
           </table>
@@ -107,6 +126,23 @@ export class AppDataTable<
             ${col.render ? col.render(row) : row[col.key]}
           </td>`;
         })}
+        ${this.actions.length
+          ? html`
+              <td
+                class="px-6 py-4 text-sm text-text-primary font-medium font-mono flex gap-8"
+              >
+                ${this.actions.map(
+                  (action) => html`
+                    <app-icon
+                      @click=${() => action.method(row)}
+                      .icon=${action.icon}
+                      .size=${18}
+                    ></app-icon>
+                  `,
+                )}
+              </td>
+            `
+          : null}
       </tr>
     `;
   }

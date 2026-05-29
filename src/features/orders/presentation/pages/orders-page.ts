@@ -2,14 +2,14 @@ import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 
 import { tailwindStyles } from "@styles/tailwind-styles";
-import { Search } from "lucide";
+import { Search, Eye, Trash, Pencil } from "lucide";
 
-import { type AppDataTableColumn } "@shared/presentation/components/app-table-list";
-
+import { type AppDataTableColumn } from "@shared/presentation/components/app-table-list";
 
 import "@shared/presentation/components/app-table-list";
 import "@shared/presentation/components/app-icon";
-import { supabase } from "@shared/infrastructure/supabase/supabase";
+import { AppRouter } from "@app/app.router";
+import { ordersStore } from "../stores/orders.store";
 
 export interface OrderData {
   id: string;
@@ -24,19 +24,19 @@ export interface OrderData {
 export class OrdersPage extends LitElement {
   static styles = [tailwindStyles];
 
-  @state()
-  private ordersList: OrderData[] = [];
-
   // ordersList = [{ id: 'oooo', customer_id: '222', total_amount: '342', //// }]
-
+  // create actions object and pass it as props to the app table
   @state()
-  private pagesCount = 0;
-
-  @state()
-  private from: number = 0;
-
-  @state()
-  private to: number = 9;
+  private actions: AppDataTableAction<OrderData> = [
+    {
+      icon: Eye,
+      method: (order) => {
+        AppRouter.navigate(`/orders/${order.id}`);
+      },
+    },
+    { icon: Pencil, method: "..." },
+    { icon: Trash, method: "..." },
+  ];
 
   @state()
   private columns: AppDataTableColumn<OrderData>[] = [
@@ -81,32 +81,9 @@ export class OrdersPage extends LitElement {
     },
   ];
 
-  async getOrders(): Promise<void> {
-    const {
-      data: orders,
-      error,
-      count,
-    } = await supabase
-      .from("orders")
-      .select("*", { count: "exact" })
-      .range(this.from, this.to);
-
-    if (error) {
-      throw new Error(`Error fetching orders: ${error.message}`);
-    }
-    this.ordersList = orders;
-    this.pagesCount = Math.ceil((count ?? 0) / 10);
-    console.log(this.ordersList);
-  }
-
-  async paginate(page: number): Promise<void> {
-    this.from = (page - 1) * 10;
-    this.to = this.from + 9;
-    await this.getOrders();
-  }
-
-  firstUpdated() {
-    this.getOrders();
+  async firstUpdated() {
+    await ordersStore.getOrders();
+    this.requestUpdate();
   }
 
   protected render() {
@@ -148,11 +125,14 @@ export class OrdersPage extends LitElement {
 
         <!-- Data Table -->
         <app-data-table
-          .rows=${this.ordersList}
+          .rows=${ordersStore.ordersList}
           .columns=${this.columns}
-          .totalItems=${this.pagesCount}
-          @pagination=${(event: { detail: { page: number } }) =>
-            this.paginate(event.detail.page)}
+          .totalItems=${ordersStore.pagesCount}
+          .actions=${this.actions}
+          @pagination=${async (event: { detail: { page: number } }) => {
+            await ordersStore.paginate(event.detail.page);
+            this.requestUpdate();
+          }}
         >
         </app-data-table>
       </div>
