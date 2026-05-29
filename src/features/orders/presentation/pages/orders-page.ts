@@ -4,7 +4,10 @@ import { customElement, state } from "lit/decorators.js";
 import { tailwindStyles } from "@styles/tailwind-styles";
 import { Search } from "lucide";
 
-import "@features/orders/presentation/components/order-list-table";
+import { type AppDataTableColumn } "@shared/presentation/components/app-table-list";
+
+
+import "@shared/presentation/components/app-table-list";
 import "@shared/presentation/components/app-icon";
 import { supabase } from "@shared/infrastructure/supabase/supabase";
 
@@ -24,6 +27,8 @@ export class OrdersPage extends LitElement {
   @state()
   private ordersList: OrderData[] = [];
 
+  // ordersList = [{ id: 'oooo', customer_id: '222', total_amount: '342', //// }]
+
   @state()
   private pagesCount = 0;
 
@@ -32,6 +37,49 @@ export class OrdersPage extends LitElement {
 
   @state()
   private to: number = 9;
+
+  @state()
+  private columns: AppDataTableColumn<OrderData>[] = [
+    { label: "Order", key: "id" },
+    { label: "Customer", key: "customer_id" },
+    { label: "Date", key: "created_at" },
+    { label: "Total", key: "customer_id" },
+    {
+      label: "Customer",
+      key: "total_amount",
+      render: (row) => {
+        const formatted = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(row.total_amount);
+        return html`${formatted}`;
+      },
+    },
+    { label: "Payment", key: "payment_method" },
+    {
+      label: "Delivery",
+      key: "delivery_status",
+      render: (row) => {
+        const configs = {
+          Delivered: "bg-success-bg text-success border-success/20",
+          Cancelled: "bg-error-bg text-error border-error/20",
+          "In Transit": "bg-warning-bg text-warning border-warning/20",
+        };
+
+        const config =
+          configs[row.delivery_status as keyof typeof configs] ||
+          "bg-surface-card text-text-dim border-white/5";
+
+        return html`
+          <span
+            class="inline-flex items-center px-2.5 py-1 rounded-full border text-[0.7rem] font-bold uppercase tracking-wider ${config}"
+          >
+            ${row.delivery_status}
+          </span>
+        `;
+      },
+    },
+  ];
 
   async getOrders(): Promise<void> {
     const {
@@ -48,6 +96,7 @@ export class OrdersPage extends LitElement {
     }
     this.ordersList = orders;
     this.pagesCount = Math.ceil((count ?? 0) / 10);
+    console.log(this.ordersList);
   }
 
   async paginate(page: number): Promise<void> {
@@ -101,6 +150,7 @@ export class OrdersPage extends LitElement {
         <app-data-table
           .rows=${this.ordersList}
           .columns=${this.columns}
+          .totalItems=${this.pagesCount}
           @pagination=${(event: { detail: { page: number } }) =>
             this.paginate(event.detail.page)}
         >
