@@ -4,7 +4,10 @@ import { customElement, state } from "lit/decorators.js";
 import { tailwindStyles } from "@styles/tailwind-styles";
 import { Search, Eye, Trash, Pencil } from "lucide";
 
-import { type AppDataTableColumn } from "@shared/presentation/components/app-table-list";
+import {
+  type AppDataTableAction,
+  type AppDataTableColumn,
+} from "@shared/presentation/components/app-table-list";
 
 import "@shared/presentation/components/app-table-list";
 import "@shared/presentation/components/app-icon";
@@ -27,10 +30,11 @@ export class OrdersPage extends LitElement {
   // ordersList = [{ id: 'oooo', customer_id: '222', total_amount: '342', //// }]
   // create actions object and pass it as props to the app table
   @state()
-  private actions: AppDataTableAction<OrderData> = [
+  private actions: AppDataTableAction<OrderData>[] = [
     {
       icon: Eye,
       method: (order) => {
+        ordersStore.setSelectedOrder(order);
         AppRouter.navigate(`/orders/${order.id}`);
       },
     },

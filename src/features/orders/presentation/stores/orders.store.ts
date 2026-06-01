@@ -11,6 +11,7 @@ export class OrdersStore {
   pagesCount = 0;
   from = 0;
   to = 9;
+  selectedOrder: OrderData | null = null;
 
   async getOrders(): Promise<void> {
     const {
@@ -33,6 +34,10 @@ export class OrdersStore {
     this.from = (page - 1) * 10;
     this.to = this.from + 9;
     await this.getOrders();
+  }
+
+  setSelectedOrder(order: OrderData): void {
+    this.selectedOrder = order;
   }
 }
 
