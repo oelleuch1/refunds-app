@@ -5,6 +5,7 @@ import { customElement, state } from 'lit/decorators.js'
 import { USE_CASES } from '@app/dependencies'
 import { AppRouter } from '@app/app.router'
 import { AUTH_ROUTE_PATHS, LOGIN_PATH } from '@features/auth/presentation/auth.routes'
+import { SAMPLES_PATH } from '@features/samples/presentation/samples.routes'
 import { AuthSession } from '@features/auth/domain/entities/auth-session'
 import { appStateContext, initialAppState, type AppState } from '@shared/presentation/state/app-state-context'
 import { tailwindStyles } from '@styles/tailwind-styles'
@@ -35,14 +36,21 @@ export class AppRoot extends LitElement {
 
     const currentPath = window.location.pathname
     const isAuthRoute = AUTH_ROUTE_PATHS.has(currentPath)
+    const isSamplesRoute = currentPath === SAMPLES_PATH
 
-    return isAuthRoute ?
-      html`
+    if (isAuthRoute) {
+      return html`
         <unauthenticated-layout id="app" class="min-h-screen min-w-0">
           ${this.router.outlet()}
         </unauthenticated-layout>
-      ` :
-      html`
+      `
+    }
+
+    if (isSamplesRoute) {
+      return html`<div id="app">${this.router.outlet()}</div>`
+    }
+
+    return html`
       <authenticated-layout
         id="app"
         class="min-h-screen min-w-0"
@@ -60,9 +68,11 @@ export class AppRoot extends LitElement {
         throw new Error('No active session')
       }
       this.appState = { session, isRestoringSession: false }
-    } catch (error) {
+    } catch {
       this.appState = { session: null, isRestoringSession: false }
-      await AppRouter.navigate(LOGIN_PATH, { replace: true })
+      if (window.location.pathname !== SAMPLES_PATH) {
+        await AppRouter.navigate(LOGIN_PATH, { replace: true })
+      }
     }
   }
 }

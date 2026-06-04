@@ -5,6 +5,7 @@ import { authRoutes } from '@features/auth/presentation/auth.routes'
 import { dashboardRoutes } from '@features/dashboard/presentation/dashboard.routes'
 import { customersRoutes } from '@features/customers/presentation/customers.routes'
 import { ordersRoutes } from '@features/orders/presentation/orders.routes'
+import { samplesRoutes } from '@features/samples/presentation/samples.routes'
 
 const routes: RouteConfig[] = [
   {
@@ -14,7 +15,8 @@ const routes: RouteConfig[] = [
   ...authRoutes,
   ...dashboardRoutes,
   ...customersRoutes,
-  ...ordersRoutes
+  ...ordersRoutes,
+  ...samplesRoutes,
 ]
 
 export class AppRouter {
