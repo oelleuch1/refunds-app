@@ -1,5 +1,7 @@
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { AppRouter } from "@app/app.router";
+import { Undo2, type IconNode } from "lucide";
 
 import { tailwindStyles } from "@styles/tailwind-styles";
 import {
@@ -19,70 +21,77 @@ import "@shared/presentation/components/app-icon";
 
 import { ordersStore } from "../stores/orders.store";
 import type { OrderData } from "./orders-page";
-interface PurchasedItem {
-  id: string;
-  name: string;
-  category: string;
-  returnPolicy: string;
-  sku: string;
-  qty: number;
-  price: string;
-  warranty: string;
-  eligibility: "Eligible" | "Digital" | "Ineligible";
-  icon: any;
-}
 
-const FAKE_ITEMS: PurchasedItem[] = [
-  {
-    id: "1",
-    name: "Studio Pro headphones",
-    category: "Electronics",
-    returnPolicy: "30-day return",
-    sku: "SKU-90281",
-    qty: 1,
-    price: "€149.00",
-    warranty: "12 months",
-    eligibility: "Eligible",
-    icon: Headphones,
-  },
-  {
-    id: "2",
-    name: "Phone case — midnight blue",
-    category: "Accessories",
-    returnPolicy: "14-day return",
-    sku: "SKU-33104",
-    qty: 2,
-    price: "€24.00",
-    warranty: "None",
-    eligibility: "Eligible",
-    icon: Smartphone,
-  },
-  {
-    id: "3",
-    name: "Premium music subscription — 1yr",
-    category: "Digital",
-    returnPolicy: "0-day return",
-    sku: "SKU-DIG-07",
-    qty: 1,
-    price: "€49.00",
-    warranty: "N/A",
-    eligibility: "Digital",
-    icon: Music,
-  },
-];
+import "@shared/presentation/components/app-table-list";
+import type {
+  AppDataTableAction,
+  AppDataTableColumn,
+} from "@shared/presentation/components/app-table-list";
+
+export type OrderItem = {
+  product_name: string;
+  category: string;
+  status: string;
+  sku: string;
+  unit_price: string;
+  return_unit_days: number;
+};
 
 @customElement("app-order-details-page")
 export class OrderDetailsPage extends LitElement {
   static styles = [tailwindStyles];
 
-  @state()
-  private order: OrderData | null = null;
+  private actions: AppDataTableAction<OrderItem>[] = [
+    {
+      icon: Undo2,
+      method: (orderItem) => {
+        console.log("return clicked", orderItem);
+      },
+    },
+  ];
 
-  protected firstUpdated(): void {
-    this.order = ordersStore.selectedOrder;
+  private columns: AppDataTableColumn<OrderItem>[] = [
+    {
+      label: "Item",
+      key: "product_name",
+    },
+    {
+      label: "Category",
+      key: "category",
+    },
+    {
+      label: "SKU",
+      key: "sku",
+    },
+    {
+      label: "Price",
+      key: "unit_price",
+      // render: () => {<return "00.1 $";},
+    },
+    {
+      label: "Return Window",
+      key: "return_unit_days",
+    },
+    ,
+  ];
+
+  get order(): OrderData {
+    return ordersStore.selectedOrder;
+  }
+
+  async firstUpdated() {
+    if (!ordersStore.selectedOrder) {
+      await ordersStore.getOrderById(AppRouter.router.params.id);
+    }
+    await ordersStore.getOrderItems(this.order.id);
+    this.requestUpdate();
   }
 
   protected render() {
+    if (!this.order) {
+      return html`Fetching order data`;
+    }
+
     return html`
       <div
         class="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12"
@@ -131,14 +140,13 @@ export class OrderDetailsPage extends LitElement {
                 class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-success/20 bg-success-bg text-success text-[0.7rem] font-bold uppercase tracking-wider"
               >
                 <app-icon .icon=${CheckCircle2} .size=${12}></app-icon>
-                Delivered
               </span>
             `,
           )}
           ${this.renderInfoCard(
             "ORDER TOTAL",
             html`<span class="text-lg font-bold text-text-primary"
-              >€247.00</span
+              >${this.order.total_amount}</span
             >`,
           )}
           ${this.renderInfoCard(
@@ -148,7 +156,7 @@ export class OrderDetailsPage extends LitElement {
                 class="flex items-center gap-2 text-text-secondary font-medium"
               >
                 <app-icon .icon=${CreditCard} .size=${16}></app-icon>
-                Visa ••4821
+                ${this.order.payment_method}
               </div>
             `,
           )}
@@ -159,7 +167,7 @@ export class OrderDetailsPage extends LitElement {
                 class="flex items-center gap-2 text-text-secondary font-medium"
               >
                 <app-icon .icon=${Calendar} .size=${16}></app-icon>
-                10 May 2026
+                ${this.order.delivered_at}
               </div>
             `,
           )}
@@ -174,69 +182,12 @@ export class OrderDetailsPage extends LitElement {
           )}
         </div>
 
-        <!-- Items Table -->
-        <div
-          class="bg-surface-panel/40 border border-white/5 rounded-2xl overflow-hidden shadow-sm"
+        <app-data-table
+          .rows=${ordersStore.orderItems}
+          .columns=${this.columns}
+          .actions=${this.actions}
         >
-          <div
-            class="px-6 py-4 border-b border-white/5 bg-white/[0.02] flex items-center gap-2"
-          >
-            <app-icon
-              .icon=${Package}
-              .size=${18}
-              class="text-brand-light"
-            ></app-icon>
-            <h2
-              class="font-bold text-text-primary uppercase tracking-wider text-sm"
-            >
-              Purchased items
-            </h2>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-white/5">
-                  <th
-                    class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider"
-                  >
-                    Product
-                  </th>
-                  <th
-                    class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider"
-                  >
-                    SKU
-                  </th>
-                  <th
-                    class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider text-center"
-                  >
-                    QTY
-                  </th>
-                  <th
-                    class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider"
-                  >
-                    Price
-                  </th>
-                  <th
-                    class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider"
-                  >
-                    Warranty
-                  </th>
-                  <th
-                    class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider"
-                  >
-                    Return Eligible
-                  </th>
-                  <th
-                    class="px-6 py-4 text-xs font-bold text-text-dim uppercase tracking-wider text-right"
-                  ></th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-white/5">
-                ${FAKE_ITEMS.map((item) => this.renderItemRow(item))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </app-data-table>
       </div>
     `;
   }
