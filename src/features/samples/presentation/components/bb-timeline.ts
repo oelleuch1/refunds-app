@@ -1,8 +1,13 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
-import "./bb-timeline-item";
-import type { TimelineItem } from "./bb-timeline-item";
+import { formatAsDate } from "@features/samples/utils/date";
+
+export type TimelineItem = {
+  title: string;
+  date?: string | Date;
+  body?: string;
+};
 
 @customElement("bb-timeline")
 export class BbTimeline extends LitElement {
@@ -12,29 +17,26 @@ export class BbTimeline extends LitElement {
   @property({ attribute: false })
   items: TimelineItem[] = [];
 
-  // get rid of item component, move it here and create a slot
+  private renderTimelineItem(item: TimelineItem) {
+    return html`
+      <li>
+        <h4>${item.title}</h4>
+
+        ${item.date ? html` <time>${formatAsDate(item.date)}</time> ` : nothing}
+        ${item.body ? html`<p>${item.body}</p>` : nothing}
+      </li>
+    `;
+  }
+
   render() {
     return html`
-      <section>
-        ${this.heading ? html`<h3>${this.heading}</h3>` : null}
+      ${this.heading ? html`<h3>${this.heading}</h3>` : nothing}
 
-        <ol>
-          ${this.items.map(
-            (item) => html`
-              <li>
-                <bb-timeline-item
-                  .title=${item.title}
-                  .date=${item.date}
-                  .dateFormat=${item.dateFormat ?? "medium"}
-                  .status=${item.status ?? "default"}
-                  .body=${item.body ?? ""}
-                >
-                </bb-timeline-item>
-              </li>
-            `,
-          )}
-        </ol>
-      </section>
+      <ol>
+        ${this.items.map((item) => this.renderTimelineItem(item))}
+      </ol>
+
+      <slot></slot>
     `;
   }
 }
