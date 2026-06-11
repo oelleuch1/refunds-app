@@ -2,62 +2,34 @@ import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 
 import { tailwindStyles } from "@styles/tailwind-styles";
-import { Search } from "lucide";
+import { Search, Eye, Trash } from "lucide";
 
-import "@features/orders/presentation/components/order-list-table";
+import "@shared/presentation/components/app-data-table";
 import "@shared/presentation/components/app-icon";
-import { supabase } from "@shared/infrastructure/supabase/supabase";
+import { ordersStore } from "../stores/orders.store";
+
+import "@shared/presentation/components/app-form";
+
+export type Order = {
+  id: string;
+  customer_id: string;
+  total_amount: number;
+  delivery_status: string;
+  created_at: string;
+};
 
 @customElement("app-orders-page")
 export class OrdersPage extends LitElement {
   static styles = [tailwindStyles];
 
-  @state()
-  private orders: any[] = [];
-
-  @state()
-  private totalOrders: number = 0;
-
-  @state()
-  private currentPage: number = 1;
-
-  @state()
-  private pageSize: number = 10;
-
-  @state()
-  isLoading: boolean = false;
-
-  async getOrders() {
-    this.isLoading = true;
-    const {
-      data: orders,
-      error,
-      count,
-    } = await supabase
-      .from("orders")
-      .select("*", { count: "exact" })
-      .range(
-        (this.currentPage - 1) * this.pageSize,
-        (this.currentPage - 1) * this.pageSize + this.pageSize - 1,
-      );
-
-    this.isLoading = false;
-
-    if (error) {
-      console.error("Error fetching orders:", error);
-      return [];
-    }
-    this.orders = orders;
-    this.totalOrders = count ?? 0;
+  protected async firstUpdated(): Promise<void> {
+    await ordersStore.getOrders();
+    this.requestUpdate();
   }
 
-  protected firstUpdated(): void {
-    this.getOrders();
-  }
-
-  private updatePage(newPage: number) {
-    this.currentPage = newPage;
-    this.getOrders();
+  private async updatePage(newPage: number) {
+    await ordersStore.updatePage(newPage);
+    this.requestUpdate();
   }
 
   protected render() {
@@ -98,15 +70,94 @@ export class OrdersPage extends LitElement {
         </div>
 
         <!-- Data Table -->
-        <order-list-table
-          .orders=${this.orders}
-          .totalOrders=${this.totalOrders}
-          .hasNextPage=${this.currentPage * this.pageSize < this.totalOrders}
-          .hasPreviousPage=${this.currentPage > 1}
-          .isLoading=${this.isLoading}
+        <app-data-table
+          .rows=${ordersStore.state.orders}
+          .columns=${[
+            { key: "id", label: "Order ID" },
+            { key: "customer_id", label: "Customer ID" },
+            {
+              key: "total_amount",
+              label: "Total Amount",
+              render: (row) => `$${row.total_amount.toFixed(2)}`,
+            },
+            {
+              key: "delivery_status",
+              label: "Delivery Status",
+              render: (row) => html`
+                <span
+                  class="px-2 py-1 rounded-full text-xs font-medium ${row.delivery_status ===
+                  "Delivered"
+                    ? "bg-green-100 text-green-800"
+                    : row.delivery_status === "In Transit"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-red-100 text-red-800"}"
+                >
+                  ${row.delivery_status}</span
+                >
+              `,
+            },
+            {
+              key: "created_at",
+              label: "Created At",
+              render: (row) => new Date(row.created_at).toLocaleDateString(),
+            },
+          ]}
+          .actions=${[
+            {
+              label: "View Details",
+              icon: Eye,
+              onClick: (row) => {
+                console.log("View details for order:", row);
+              },
+            },
+            {
+              label: "Delete",
+              icon: Trash,
+              onClick: (row) => {
+                console.log("Delete order:", row);
+              },
+            },
+          ]}
+          .loading=${ordersStore.state.isLoading}
+          .page=${ordersStore.state.currentPage}
+          .total=${ordersStore.state.totalOrders}
+          .pageSize=${ordersStore.state.pageSize}
           @page-change=${(e: CustomEvent) => this.updatePage(e.detail.page)}
-        ></order-list-table>
+        >
+        </app-data-table>
       </div>
+      <app-form
+        .fields=${[
+          [
+            {
+              name: "order_id",
+              label: "Order ID",
+              type: "text",
+              attrs: { readonly: true, value: "12345" },
+              rules: [],
+            },
+            {
+              name: "reason",
+              label: "Reason for Return",
+              type: "select",
+              attrs: {
+                options: [
+                  { value: "defective", label: "Defective Item" },
+                  { value: "wrong_item", label: "Wrong Item Sent" },
+                  { value: "no_longer_needed", label: "No Longer Needed" },
+                  { value: "other", label: "Other" },
+                ],
+              },
+              rules: [
+                {
+                  type: "required",
+                  message: "Please select a reason for return.",
+                },
+              ],
+            },
+          ],
+        ]}
+      ></app-form>
     `;
   }
 }

@@ -18,10 +18,6 @@ import { tailwindStyles } from "@styles/tailwind-styles";
 
 import "@shared/presentation/layouts/authenticated-layout";
 import "@shared/presentation/layouts/unauthenticated-layout";
-import {
-  ordersStoreContext,
-  type OrdersStore,
-} from "@features/orders/presentation/store/orders.store";
 
 @customElement("app-root")
 export class AppRoot extends LitElement {
@@ -33,18 +29,6 @@ export class AppRoot extends LitElement {
   @provide({ context: appStateContext })
   @state()
   private appState: AppState = initialAppState;
-
-  @provide<OrdersStore>({ context: ordersStoreContext })
-  private ordersStore = {
-    state: {
-      selectedOrder: null,
-    },
-    actions: {
-      updateSelectedOrder: (order: any | null) => {
-        this.ordersStore.state.selectedOrder = order;
-      },
-    },
-  };
 
   connectedCallback(): void {
     super.connectedCallback();

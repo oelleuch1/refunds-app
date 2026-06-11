@@ -1,7 +1,7 @@
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { consume } from "@lit/context";
-import { ordersStoreContext, type OrdersStore } from "../store/orders.store";
+// import { ordersStoreContext, type OrdersStore } from "../store/orders.store";
 
 import { tailwindStyles } from "@styles/tailwind-styles";
 import {
@@ -20,13 +20,16 @@ import "@shared/presentation/components/app-icon";
 @customElement("app-order-details-page")
 export class OrderDetailsPage extends LitElement {
   static styles = [tailwindStyles];
-
-  @consume({ context: ordersStoreContext, subscribe: true })
+  /**
+ *   @consume({ context: ordersStoreContext, subscribe: true })
   @property({ attribute: false })
   ordersStore?: OrdersStore;
 
+ */
+
   get order() {
-    return this.ordersStore?.state.selectedOrder;
+    // return this.ordersStore?.state.selectedOrder;
+    return null;
   }
 
   protected render() {
