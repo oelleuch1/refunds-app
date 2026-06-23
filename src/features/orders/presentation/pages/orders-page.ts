@@ -9,6 +9,7 @@ import "@shared/presentation/components/app-icon";
 import { ordersStore } from "../stores/orders.store";
 
 import "@shared/presentation/components/app-form";
+import "@shared/presentation/components/app-stepper";
 
 export type Order = {
   id: string;
@@ -33,18 +34,25 @@ export class OrdersPage extends LitElement {
   }
 
   @state()
-  private data = [
-    { title: "Select item", info: "Choose item", icon: "icon" },
-    { title: "Reason", info: "Choose item", icon: "icon" },
-    { title: "Explanation", info: "Choose item", icon: "icon" },
+  private steps = [
+    { title: "Select item", info: "Choose item" },
+    { title: "Reason", info: "Choose item" },
+    { title: "Explanation", info: "Choose item" },
   ];
+
+  @state()
+  private currentStep = 0;
 
   protected render() {
     return html`
+      <app-stepper
+        .steps=${this.steps}
+        .currentStep=${this.currentStep}
+      ></app-stepper>
+
       <div
         class="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700"
       >
-        <app-stepper .data=${this.data}></app-stepper>
         <!-- Header -->
         <header>
           <h1 class="text-3xl font-bold text-text-primary tracking-tight mb-2">
