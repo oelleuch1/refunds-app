@@ -1,45 +1,54 @@
-# Testing Documentation — Vitest + @open-wc/testing (with Vue Test Utils comparison)
+# Testing Documentation — @web/test-runner + Mocha + Sinon + @open-wc/testing (with Vue Test Utils comparison)
 
 Reference for writing professional unit tests in this project, written for someone who already knows **Vitest + Vue Test Utils** and is mapping that knowledge onto **Lit / Web Components**.
 
-Every section pairs the Lit/`@open-wc` API we use with its **Vue Test Utils (VTU)** equivalent so you can translate intuition directly.
+Every section pairs the API we use with its **Vue Test Utils (VTU)** equivalent so you can translate intuition directly.
 
 **Stack:**
 
-- **Vitest 4** — test runner, mocking, lifecycle hooks (`environment: jsdom`, `globals: true`). _Same runner Vue projects use._
-- **@open-wc/testing 4** — Lit/Web Component fixtures + Chai-style assertions (`expect(...).to.*`). _This is the part that replaces `@vue/test-utils`._
+- **@web/test-runner** — runs tests in a **real browser** (headless Chromium), not jsdom. More faithful for shadow DOM / custom elements than a simulated DOM. _This replaces the Vitest runner._
+- **Mocha** — `describe` / `it` / lifecycle hooks. Wired in by `@web/test-runner-mocha` and exposed as **globals** (no import). _This replaces Vitest's runner half (`describe`/`it`/`beforeEach`)._
+- **Sinon** — spies, stubs, fakes, mocks, and fake timers. _This replaces Vitest's `vi`._
+- **@open-wc/testing 4** — Lit/Web Component fixtures + **Chai** assertions (`expect(...).to.*`). _This replaces `@vue/test-utils` and supplies the one `expect` we use._
+
+> Mocha + Chai + Sinon is the canonical @open-wc testing stack — `@open-wc/testing` already bundles Chai, so the only thing you import for assertions is its `expect`. Compared to a Vue project, the runner (Mocha vs Vitest) and the mocking lib (Sinon vs `vi`) change; the component-fixture and assertion layers are @open-wc either way.
 
 ### The big mental-model shift from Vue
 
 | Concept                | Vue Test Utils                                    | Lit + @open-wc/testing                                   |
 | ---------------------- | ------------------------------------------------- | -------------------------------------------------------- |
-| Mount a component      | `mount(Component, { props })` → `wrapper`         | `await fixture(html\`<x-el .p=${v}></x-el>\`)`→`Element` |
+| Mount a component      | `mount(Component, { props })` → `wrapper`         | `await fixture(html\`<x-el .p=${v}></x-el>\`)` → `Element` |
 | The thing you get back | A **wrapper** object (`wrapper.vm`, `.find`…)     | The **real DOM element** (`el.shadowRoot`, `el.prop`)    |
 | Where markup lives     | `wrapper.find(...)` (light DOM)                   | `el.shadowRoot!.querySelector(...)` (**shadow** DOM)     |
 | Wait for re-render     | `await nextTick()` / `await wrapper.vm.$nextTick` | `await el.updateComplete`                                |
 | Assertion style        | Jest-style `expect(x).toBe(y)`                    | Chai-style `expect(x).to.equal(y)`                       |
 | Read emitted events    | `wrapper.emitted('name')`                         | `await oneEvent(el, 'name')` or a listener spy           |
 | Set a prop after mount | `await wrapper.setProps({ p })`                   | `el.p = v; await el.updateComplete`                      |
+| Make a spy/stub        | `vi.fn()` / `vi.spyOn(...)`                        | `sinon.spy()` / `sinon.stub(...)`                        |
 
 The single most common bug when coming from Vue: forgetting that Web Components render into a **shadow root**, so `el.querySelector` finds nothing — you must go through `el.shadowRoot`.
 
-**Important — two `expect`s exist:**
+**One `expect`, one mocking library:**
 
-- `expect` from `@open-wc/testing` → **Chai** syntax (`.to.equal`, `.to.contain`). This is what we use across the project.
-- `expect` from `vitest` → **Jest** syntax (`.toBe`, `.toContain`) — _the one VTU tutorials use._ Don't mix them in the same file. Our convention: import `expect` from `@open-wc/testing`, import everything else (`vi`, `describe`, `it`, hooks) from `vitest`.
+- `expect` comes from `@open-wc/testing` → **Chai** syntax (`.to.equal`, `.to.contain`). This is the only `expect` in the project.
+- Spies/stubs come from `sinon`. Chai reads the booleans Sinon exposes (`spy.calledOnce`, `spy.callCount`).
+- `describe` / `it` / `beforeEach` / `afterEach` are **Mocha globals** — nothing to import.
 
 ```ts
 import { fixture, html, expect, oneEvent } from "@open-wc/testing";
-import { vi, describe, beforeEach, afterEach, it } from "vitest";
+import sinon from "sinon";
+// describe / it / beforeEach / afterEach are Mocha globals — no import needed
 ```
 
-> In a Vue project you'd instead write `import { mount } from "@vue/test-utils"` and `import { expect, vi, describe, it } from "vitest"` — one `expect`, Jest-style.
+> In a Vue project you'd instead write `import { mount } from "@vue/test-utils"` and `import { expect, vi, describe, it } from "vitest"` — one `expect` (Jest-style), `vi` for mocks, and the runner imported from `vitest`.
+>
+> **TypeScript note:** add `@types/mocha` (so the global `describe`/`it` type-check) and `@types/sinon` to devDependencies.
 
 ---
 
-## 1. Test structure (Vitest)
+## 1. Test structure (Mocha)
 
-> **Identical to Vue.** `describe`/`it`/modifiers come from Vitest, not from the component library, so this layer is the same whether you test Vue or Lit.
+> **Almost identical to Vue.** `describe`/`it` exist in both. The difference is the **modifiers**: Mocha has a smaller set than Vitest — no `it.each`, no `it.todo`, no `it.concurrent`. Parameterization is a plain JS loop.
 
 ### `describe(name, fn)`
 
@@ -55,7 +64,7 @@ describe("app-data-table", () => {
 
 ### `it(name, fn)` / `test(name, fn)`
 
-Defines a single test. Aliases — `it` reads better with behavior names.
+Defines a single test. `it` reads better with behavior names. Return a promise (or use `async`) for async tests — Mocha awaits it.
 
 ```ts
 it("renders headers", async () => {
@@ -63,65 +72,67 @@ it("renders headers", async () => {
 });
 ```
 
-### Modifiers
+### Modifiers (Mocha)
 
-| Modifier                             | Purpose                                                 |
-| ------------------------------------ | ------------------------------------------------------- | --------------------------------------- |
-| `it.only(...)`                       | Run **only** this test (and other `.only`s). Debugging. |
-| IMPORTANT                            | `it.skip(...)`                                          | Skip this test.                         |
-| `it.todo("name")`                    | Placeholder, reported as todo.                          |
-| IMPORTANT                            | `it.each([...])(name, fn)`                              | Parameterized — runs once per data row. |
-| `it.fails(...)`                      | Asserts the test is expected to throw/fail.             |
-| `it.runIf(cond)` / `it.skipIf(cond)` | Conditionally run/skip based on a boolean.              |
-| `it.concurrent(...)`                 | Run sibling `.concurrent` tests in parallel.            |
-| `describe.each([...])`               | Parameterize an entire suite.                           |
+| Modifier                         | Purpose                                                          |
+| -------------------------------- | --------------------------------------------------------------- |
+| `it.only(...)`                   | Run **only** this test (and other `.only`s). Debugging.         |
+| `it.skip(...)` / `xit(...)`      | Skip this test.                                                 |
+| `it("name")` (no callback)       | **Pending** placeholder (Vitest's `it.todo`).                  |
+| `describe.only` / `describe.skip`| Focus / skip an entire suite.                                  |
+| `this.timeout(ms)`               | Per-test timeout. Needs a `function()` body — **not** an arrow. |
+| `this.retries(n)`                | Retry a flaky test up to `n` times.                            |
 
-it('describing the piece of unit test', () => {
-
-})
+> **No `it.each` in Mocha.** Parameterize with an ordinary loop that calls `it` per row (Vitest's `it.each` and `describe.each` have no direct equivalent):
 
 ```ts
-it.each([
+for (const { input, expected } of [
   { input: 1, expected: "1" },
   { input: 10, expected: "10" },
-])("formats $input → $expected", ({ input, expected }) => {
-  expect(format(input)).to.equal(expected);
-});
+]) {
+  it(`formats ${input} → ${expected}`, () => {
+    expect(format(input)).to.equal(expected);
+  });
+}
 ```
+
+> **Arrow-function gotcha:** Mocha exposes per-test config through `this` (`this.timeout`, `this.retries`, `this.slow`). Arrow functions don't bind `this`, so if you need those, write `it("…", function () { this.timeout(5000); … })`. For everything else, arrows are fine.
 
 ---
 
-## 2. Lifecycle hooks (Vitest)
+## 2. Lifecycle hooks (Mocha)
 
-> **Identical to Vue.** Same four hooks, same scoping rules. The only difference is _what_ you set up inside them (stores/spies vs. Vue plugins).
+> **Watch the names.** Mocha calls the once-per-scope hooks `before` / `after` — **not** Vitest's `beforeAll` / `afterAll`. The per-test hooks (`beforeEach` / `afterEach`) match.
 
-| Hook            | Runs                                |
-| --------------- | ----------------------------------- | ------------------------------------------------- |
-| `beforeAll(fn)` | Once before all tests in the scope. |
-| `afterAll(fn)`  | Once after all tests in the scope.  |
-| IMPORTANT       | `beforeEach(fn)`                    | Before **every** test — set up fresh state.       |
-| IMPORTANT       | `afterEach(fn)`                     | After **every** test — clean up (restore mocks!). |
+| Hook             | Runs                                | Vitest equivalent |
+| ---------------- | ----------------------------------- | ----------------- |
+| `before(fn)`     | Once before all tests in the scope. | `beforeAll`       |
+| `after(fn)`      | Once after all tests in the scope.  | `afterAll`        |
+| `beforeEach(fn)` | Before **every** test — fresh state.| `beforeEach`      |
+| `afterEach(fn)`  | After **every** test — **`sinon.restore()` here**. | `afterEach` |
 
-Scope follows the `describe` they're declared in. Always restore mocks in `afterEach` to prevent leakage between tests:
+Scope follows the `describe` they're declared in. Always restore Sinon in `afterEach` to prevent stub/spy leakage between tests:
 
 ```ts
 beforeEach(() => {
-  vi.spyOn(ordersStore, "getOrders").mockResolvedValue(undefined);
+  sinon.stub(ordersStore, "getOrders").resolves(undefined);
   ordersStore.state = { orders: [], isLoading: false /* ... */ };
 });
 
 afterEach(() => {
-  vi.restoreAllMocks();
+  sinon.restore(); // restores every fake on the default sandbox
 });
 ```
 
+> **`sinon.restore()` is the workhorse.** The `sinon` object is itself the **default sandbox**, so anything you created with `sinon.spy(obj, …)` / `sinon.stub(obj, …)` is tracked and undone in one call. (Vitest equivalent: `vi.restoreAllMocks()`.)
+>
 > **VTU note:** In Vue you typically also call `wrapper.unmount()` in `afterEach`. With `@open-wc` the fixture is **auto-removed** after each test, so you rarely need manual teardown (see `fixtureCleanup` in §3).
 
 ---
 
 ## 3. Component fixtures (@open-wc/testing) — the `mount()` replacement
 
-This is the section that maps directly onto VTU's `mount` / `shallowMount`.
+This is the section that maps directly onto VTU's `mount` / `shallowMount`. **Unchanged** by the move to Mocha/Sinon — fixtures are @open-wc.
 
 | Vue Test Utils                        | @open-wc/testing                                   |
 | ------------------------------------- | -------------------------------------------------- |
@@ -144,12 +155,15 @@ html`<app-data-table .rows=${rows} .columns=${columns}></app-data-table>`;
 
 ### `fixture(template)` → `Promise<Element>`
 
-IMPORTANT const dataTable = await fixture(html`<app-data-table .rows=${rows} .columns=${columns}></app-data-table>`)
+```ts
+const dataTable = await fixture(
+  html`<app-data-table .rows=${rows} .columns=${columns}></app-data-table>`,
+);
 
-dataTable.rows = newRows
+dataTable.rows = newRows;
 await dataTable.updateComplete;
-
-// dataTable is updated
+// dataTable is now re-rendered
+```
 
 Mounts the element into the DOM and **awaits its first render** (`updateComplete`). Auto-removed after each test. Always `await` it.
 
@@ -161,19 +175,17 @@ const el = await fixture(html`<app-orders-page></app-orders-page>`);
 
 ### Other fixture helpers
 
-| Function                                        | Use                                      | VTU analogue                                                |
-| ----------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------- | ------------------------- |
-| IMPORTANT                                       | `fixture<T>(tpl)`                        | Typed: `await fixture<AppDataTable>(...)` gives typed `el`. | `mount<typeof Comp>(...)` |
-| `fixtureSync(tpl)`                              | Mounts **without** waiting for render.   | `mount` (sync) + manual `nextTick`                          |
-| `fixtureCleanup()`                              | Manual teardown (normally automatic).    | `wrapper.unmount()`                                         |
-| IMPORTANT                                       | `html`                                   | Build the template.                                         | Vue SFC `<template>`      |
-| `unsafeStatic` / `litFixture` / `legacyFixture` | Lower-level / advanced fixture builders. | —                                                           |
+| Function                                        | Use                                      | VTU analogue                       |
+| ----------------------------------------------- | ---------------------------------------- | ---------------------------------- |
+| `fixture<T>(tpl)`                               | Typed: `await fixture<AppDataTable>(...)` gives a typed `el`. | `mount<typeof Comp>(...)` |
+| `fixtureSync(tpl)`                              | Mounts **without** waiting for render.   | `mount` (sync) + manual `nextTick` |
+| `fixtureCleanup()`                              | Manual teardown (normally automatic).    | `wrapper.unmount()`                |
+| `html`                                          | Build the template.                      | Vue SFC `<template>`               |
+| `unsafeStatic` / `litFixture` / `legacyFixture` | Lower-level / advanced fixture builders. | —                                  |
 
 ### Waiting for updates — `el.updateComplete`
 
 Lit batches renders. After changing a property or firing an event, `await el.updateComplete` before asserting on the new DOM.
-
-IMPORTANT
 
 ```ts
 table.dispatchEvent(new CustomEvent("page-change", { detail: { page: 3 } }));
@@ -187,7 +199,7 @@ await el.updateComplete; // let Lit re-render
 
 ## 4. Querying the DOM — `find` / `findAll` replacement
 
-Web components render into a **shadow root** — query through `el.shadowRoot`, not `el` directly. This is the biggest day-to-day difference from VTU's `wrapper.find`.
+Web components render into a **shadow root** — query through `el.shadowRoot`, not `el` directly. This is the biggest day-to-day difference from VTU's `wrapper.find`. **Unchanged** by Mocha/Sinon.
 
 | Vue Test Utils                       | @open-wc / DOM                                       |
 | ------------------------------------ | ---------------------------------------------------- |
@@ -218,10 +230,6 @@ const page2 = buttons.find((b) => b.textContent?.trim() === "2")!;
 
 ### Reading props/attributes/classes off the rendered element
 
-IMPORTANT
-
-<button label="btn for submit" >
-
 | Vue Test Utils              | Lit / DOM                                     |
 | --------------------------- | --------------------------------------------- |
 | `wrapper.props("rows")`     | `el.rows` (read the property)                 |
@@ -243,13 +251,13 @@ expect(table.page).to.equal(1);
 
 ## 5. Events — `emitted()` / `trigger()` replacement
 
-This is where Lit and Vue diverge most. Vue records emits for you (`wrapper.emitted()`); with Web Components you listen for **real DOM `CustomEvent`s**.
+This is where Lit and Vue diverge most. Vue records emits for you (`wrapper.emitted()`); with Web Components you listen for **real DOM `CustomEvent`s**, and you use a **Sinon spy** as the listener.
 
-| Vue Test Utils                                  | @open-wc / DOM                                               |
+| Vue Test Utils                                  | @open-wc / DOM + Sinon                                        |
 | ----------------------------------------------- | ------------------------------------------------------------ |
 | `await wrapper.trigger("click")`                | `el.click()` (then `await el.updateComplete` if needed)      |
 | `await wrapper.find("button").trigger("click")` | `button.click()`                                             |
-| `wrapper.emitted("row-click")`                  | `await oneEvent(el, "row-click")` _or_ a listener spy        |
+| `wrapper.emitted("row-click")`                  | `await oneEvent(el, "row-click")` _or_ a `sinon.spy()` listener |
 | `wrapper.emitted("row-click")[0][0]`            | `event.detail` (payload lives on `CustomEvent.detail`)       |
 | `await wrapper.setValue("x")` on an input       | `input.value = "x"; input.dispatchEvent(new Event("input"))` |
 
@@ -288,15 +296,25 @@ table.dispatchEvent(
 
 > **`composed: true` has no Vue analogue** — Vue events don't deal with shadow boundaries. Omit it and a parent listening outside the shadow root will never hear the event.
 
-### `el.addEventListener` + spy
+### `el.addEventListener` + a Sinon spy
 
 For asserting an event did/didn't fire (VTU: assert `wrapper.emitted("x")` is `undefined`):
 
 ```ts
-const rowSpy = vi.fn();
+const rowSpy = sinon.spy();
 el.addEventListener("row-click", rowSpy);
 button.click();
-expect(rowSpy.mock.calls).to.have.length(0); // VTU: expect(wrapper.emitted("row-click")).toBeUndefined()
+expect(rowSpy.called).to.be.false; // VTU: expect(wrapper.emitted("row-click")).toBeUndefined()
+```
+
+And to assert it fired **with** a payload:
+
+```ts
+const rowSpy = sinon.spy();
+el.addEventListener("row-click", rowSpy);
+row.click();
+expect(rowSpy.calledOnce).to.be.true;
+expect(rowSpy.firstCall.args[0].detail.row).to.deep.equal(rows[0]);
 ```
 
 ### Simulating user interaction
@@ -308,98 +326,143 @@ expect(rowSpy.mock.calls).to.have.length(0); // VTU: expect(wrapper.emitted("row
 
 ---
 
-## 6. Mocking & spying (Vitest `vi`)
+## 6. Mocking & spying (Sinon)
 
-> **Identical to Vue.** `vi` is part of Vitest, so every mocking API here is exactly what you'd use in a Vue test. The only Vue-specific things that disappear are `global.mocks` / `global.stubs` (Vue plugin injection), replaced by plain `vi.mock` of modules/stores.
+> **This is the section that changed most.** Vitest's `vi` is gone; Sinon provides the same capabilities with a different API. The key distinction Sinon draws that `vi` blurs:
+>
+> - **spy** — records calls, **keeps the real behavior** (`sinon.spy`).
+> - **stub** — records calls **and replaces behavior** (`sinon.stub`), with rich per-call/per-arg configuration.
+> - **fake** — a simpler, **immutable** spy+stub combo (`sinon.fake`), the modern recommendation for straightforward cases.
+>
+> Roughly: `vi.fn()` ≈ `sinon.spy()`/`sinon.fake()`, and `vi.spyOn(obj, "m").mockX(...)` ≈ `sinon.stub(obj, "m").x(...)`.
 
-### `vi.fn(impl?)`
-
-Creates a mock function. Inspect via `.mock`.
+### Creating test doubles
 
 ```ts
-const spy = vi.fn();
-button.click();
-expect(spy.mock.calls).to.have.length(1); // called once
-expect(spy.mock.calls[0][0]).to.deep.equal(rows[0]); // first call, first arg
+const fn = sinon.spy();              // anonymous spy (vi.fn())
+const fn = sinon.spy(impl);          // spy that also runs impl
+sinon.spy(ordersStore, "getOrders"); // wrap a real method, keep its behavior
+
+const s = sinon.stub();                       // anonymous stub
+sinon.stub(ordersStore, "getOrders");         // replace the method (no-op by default)
+sinon.stub(ordersStore, "getOrders").resolves(undefined);
+
+const f = sinon.fake.resolves(session); // immutable fake (recommended for simple cases)
+sinon.replace(ordersStore, "getOrders", f); // install a fake onto an object (auto-restored)
 ```
 
-### `vi.spyOn(object, "method")`
+### `vi` → Sinon translation
 
-Wraps an existing method — track calls while optionally replacing behavior.
+| Vitest `vi`                              | Sinon                                              |
+| ---------------------------------------- | -------------------------------------------------- |
+| `vi.fn()`                                | `sinon.spy()` _or_ `sinon.fake()`                  |
+| `vi.fn(impl)`                            | `sinon.spy(impl)` _or_ `sinon.fake(impl)`          |
+| `vi.spyOn(o, "m")` (observe, keep impl)  | `sinon.spy(o, "m")`                                |
+| `vi.spyOn(o, "m").mockReturnValue(v)`    | `sinon.stub(o, "m").returns(v)`                     |
+| `vi.spyOn(o, "m").mockResolvedValue(v)`  | `sinon.stub(o, "m").resolves(v)`                   |
+| `vi.spyOn(o, "m").mockRejectedValue(e)`  | `sinon.stub(o, "m").rejects(e)`                    |
+| `.mockReturnValueOnce(v)`                | `.onCall(0).returns(v)` (or `.onFirstCall()`)      |
+| `.mockImplementation(fn)`                | `.callsFake(fn)`                                   |
+| `.mockReturnThis()`                      | `.returnsThis()`                                   |
+
+### Configuring stub behavior
+
+| Method                          | Effect                                               |
+| ------------------------------- | ---------------------------------------------------- |
+| `.returns(v)`                   | Return `v` on every call.                            |
+| `.resolves(v)`                  | Return `Promise.resolve(v)`.                         |
+| `.rejects(e)`                   | Return `Promise.reject(e)`.                          |
+| `.throws(e)`                    | Throw on call.                                       |
+| `.returnsThis()`               | Return `this` (chainable APIs).                      |
+| `.callsFake(fn)`                | Replace with `fn` (Vitest's `mockImplementation`).   |
+| `.onCall(n).returns(v)`         | Behavior for the `n`-th call (0-based).              |
+| `.onFirstCall()` / `.onSecondCall()` | Sugar for `.onCall(0)` / `.onCall(1)`.          |
+| `.withArgs(x).returns(v)`       | Conditional behavior based on call arguments.        |
 
 ```ts
-vi.spyOn(ordersStore, "getOrders").mockResolvedValue(undefined);
-// later:
-expect(
-  (ordersStore.getOrders as ReturnType<typeof vi.spyOn>).mock.calls,
-).to.have.length(1);
+const stub = sinon.stub(ordersStore, "getOrders");
+stub.resolves([]); // default
+stub.withArgs({ page: 2 }).rejects(new Error("boom")); // arg-conditional
+stub.onFirstCall().resolves([order]); // per-call
 ```
 
-> **VTU note:** Where a Vue test mocks Vuex/Pinia via `createTestingPinia()` or `global.plugins`, here we spy directly on the plain singleton store object (`ordersStore`). Simpler — no plugin layer.
+### Inspecting a double — the spy call API
 
-### Configuring mock return values
+Sinon exposes booleans/arrays directly on the double (no `.mock` namespace like `vi`):
 
-| Method                        | Effect                                 |
-| ----------------------------- | -------------------------------------- |
-| `.mockReturnValue(v)`         | Return `v` every call.                 |
-| `.mockReturnValueOnce(v)`     | Return `v` only next call (queueable). |
-| `.mockResolvedValue(v)`       | Return `Promise.resolve(v)`.           |
-| `.mockResolvedValueOnce(v)`   | Resolve `v` for one call.              |
-| `.mockRejectedValue(e)`       | Return `Promise.reject(e)`.            |
-| `.mockRejectedValueOnce(e)`   | Reject for one call.                   |
-| `.mockImplementation(fn)`     | Replace with `fn`.                     |
-| `.mockImplementationOnce(fn)` | Replace for one call.                  |
-| `.mockReturnThis()`           | Return `this` (chainable APIs).        |
-| `.mockName("label")`          | Name the mock in error output.         |
-
-### Inspecting a mock — `.mock`
-
-| Property                    | Contains                                                   |
-| --------------------------- | ---------------------------------------------------------- |
-| `.mock.calls`               | Array of arg-arrays, one per call. `.length` = call count. |
-| `.mock.calls[0][1]`         | 1st call's 2nd argument.                                   |
-| `.mock.results`             | Return values / thrown errors per call.                    |
-| `.mock.lastCall`            | Args of the most recent call.                              |
-| `.mock.instances`           | `this` for each call.                                      |
-| `.mock.invocationCallOrder` | Global call ordering across mocks.                         |
-
-> **Jest-`expect` shortcuts you _could_ use** (but we assert via Chai on `.mock.calls`): `toHaveBeenCalled`, `toHaveBeenCalledTimes(n)`, `toHaveBeenCalledWith(...)`, `toHaveBeenLastCalledWith(...)`. Since our `expect` is Chai, we instead write `expect(fn.mock.calls).to.have.length(n)` and `expect(fn.mock.calls[0][0]).to.deep.equal(...)`.
-
-### Resetting mocks
-
-| Method                 | Effect                                                          |
-| ---------------------- | --------------------------------------------------------------- |
-| `vi.clearAllMocks()`   | Clear `.mock.calls`/`results`, keep implementations.            |
-| `vi.resetAllMocks()`   | Clear + reset implementations to no-op.                         |
-| `vi.restoreAllMocks()` | Restore original methods from `spyOn` — **use in `afterEach`**. |
-
-### Module mocking
+| Sinon                         | Contains / checks                                                 |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `.callCount`                  | Number of calls (Vitest: `.mock.calls.length`).                  |
+| `.called` / `.notCalled`      | Was it called at all.                                            |
+| `.calledOnce` / `.calledTwice`| Exactly 1 / 2 calls.                                            |
+| `.calledWith(a, b)`           | Was it ever called with these args (subset/`match` allowed).    |
+| `.calledWithExactly(a, b)`    | Called with exactly these args, no extras.                      |
+| `.args`                       | 2-D array of args, one row per call (Vitest: `.mock.calls`).    |
+| `.getCall(n)`                 | The `n`-th call object → `.args`, `.returnValue`, `.exception`, `.thisValue`, `.firstArg`, `.lastArg`. |
+| `.firstCall` / `.lastCall`    | First / most recent call objects.                               |
+| `.returnValues` / `.thisValues` | Per-call return values / `this` (Vitest: `.mock.results`).    |
+| `.threw()`                    | Did any call throw.                                             |
 
 ```ts
-vi.mock("../stores/orders.store", () => ({
-  ordersStore: { getOrders: vi.fn(), state: { orders: [] } },
-}));
-vi.mock("./real", async (orig) => ({ ...(await orig()), foo: vi.fn() })); // partial
-vi.unmock("../stores/orders.store");
+expect(spy.callCount).to.equal(1); // Vitest: expect(fn.mock.calls).to.have.length(1)
+expect(spy.calledWith("agent@example.com", "pw")).to.be.true;
+expect(spy.firstCall.args[0]).to.deep.equal(rows[0]); // Vitest: fn.mock.calls[0][0]
 ```
 
-### Timers
+> **Chai vs `sinon.assert`.** Since our `expect` is Chai, we assert on Sinon's booleans (`expect(spy.calledOnce).to.be.true`). Sinon also ships its own assertions with nicer failure messages — `sinon.assert.calledOnce(spy)`, `sinon.assert.calledWith(spy, arg)`, `sinon.assert.notCalled(spy)`, `sinon.assert.callCount(spy, n)`, `sinon.assert.callOrder(a, b)`. Either is fine; pick one style per file. (The `sinon-chai` plugin merges them into `expect(spy).to.have.been.calledOnce`, but we don't depend on it.)
 
-> **Identical to Vue.**
+### Resetting & restoring
+
+| Method                  | Effect                                                                    |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `spy.resetHistory()`    | Clear recorded calls, keep behavior (Vitest: `clearAllMocks`).            |
+| `stub.resetBehavior()`  | Clear configured behavior, keep history.                                  |
+| `stub.reset()`          | Clear both history **and** behavior.                                      |
+| `sinon.resetHistory()`  | `resetHistory()` on every default-sandbox fake.                          |
+| `sinon.reset()`         | Reset history + behavior on every default-sandbox fake (Vitest: `resetAllMocks`). |
+| `sinon.restore()`       | **Un-wrap every method** restored to the original — **use in `afterEach`** (Vitest: `restoreAllMocks`). |
+
+### "Module mocking" — the one real gap vs `vi`
+
+Sinon **cannot intercept ES-module imports** the way `vi.mock("…")` does — there is no `sinon.mock("../stores/orders.store")`. Two idiomatic replacements:
+
+1. **Dependency injection** (preferred, and what the use-case specs already do): pass collaborators into the constructor and hand in stubs.
+
+   ```ts
+   const repository: IAuthRepository = {
+     signIn: sinon.stub().resolves(session),
+     signUp: sinon.stub(),
+     signOut: sinon.stub(),
+     getCurrentSession: sinon.stub(),
+   };
+   const useCase = new SignInUseCase(repository);
+   ```
+
+2. **Stub a method on the imported singleton** — replace behavior on the live object instead of the module:
+
+   ```ts
+   import { ordersStore } from "../stores/orders.store";
+   sinon.stub(ordersStore, "getOrders").resolves([]);
+   ```
+
+> `sinon.mock(obj)` exists, but it's the classic "mock with pre-set expectations" API (`mock.expects("m").once()` + `mock.verify()`) — **not** module interception. For Web Components, DI + method stubs cover essentially every case.
+
+### Fake timers
 
 ```ts
-vi.useFakeTimers();
-vi.advanceTimersByTime(1000); // tick forward
-vi.runAllTimers(); // flush all pending timers
-vi.runOnlyPendingTimers(); // flush currently-queued only
-vi.useRealTimers(); // restore (do in afterEach)
+const clock = sinon.useFakeTimers(); // (Vitest: vi.useFakeTimers())
+clock.tick(1000); // advance 1000ms        (vi.advanceTimersByTime)
+clock.next(); // run the next queued timer
+clock.runAll(); // flush all pending timers (vi.runAllTimers)
+clock.setSystemTime(new Date("2026-01-01")); // pin Date.now()
+clock.restore(); // restore real timers      (vi.useRealTimers) — or sinon.restore()
 ```
 
 ---
 
 ## 7. Assertions — Chai (`expect` from @open-wc/testing)
 
-> **This is the biggest API-surface difference from a typical Vue test.** VTU tutorials use Vitest's **Jest-style** `expect` (`.toBe`, `.toEqual`, `.toContain`). We use **Chai-style** from `@open-wc`. The table below is your translation key; the rest of the section is the full Chai reference.
+> **Unchanged by the runner swap** — assertions were always @open-wc's Chai, not Vitest. VTU tutorials use Vitest's **Jest-style** `expect` (`.toBe`, `.toEqual`, `.toContain`); we use **Chai-style**. The table below is your translation key; the rest is the full Chai reference.
 
 | Jest-style (Vue/Vitest)          | Chai-style (this project)          |
 | -------------------------------- | ---------------------------------- |
@@ -522,26 +585,53 @@ await expect(el).dom.to.equalSnapshot();
 
 ---
 
-## 9. Running tests (npm scripts)
+## 9. Running tests (@web/test-runner)
 
-> **Identical to Vue** — these are Vitest scripts, component-library-agnostic.
+> **This replaces the Vitest scripts.** `@web/test-runner` (often invoked as `wtr`) bundles, serves, and runs the specs in a **real browser** via the Mocha framework. TypeScript specs need a transform — `@web/dev-server-esbuild` — wired up in the config.
 
-| Command            | Action                                            |
-| ------------------ | ------------------------------------------------- |
-| `npm test`         | Watch mode (`vitest`).                            |
-| `npm run test:run` | Single run, CI-friendly (`vitest run`).           |
-| `npm run coverage` | Single run with v8 coverage report (text + html). |
+| Command               | Action                                                  |
+| --------------------- | ------------------------------------------------------- |
+| `npm test`            | Single run (`web-test-runner`).                         |
+| `npm run test:watch`  | Watch mode (`web-test-runner --watch`).                 |
+| `npm run coverage`    | Single run with coverage (`web-test-runner --coverage`).|
+
+Suggested `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "test": "web-test-runner",
+    "test:watch": "web-test-runner --watch",
+    "coverage": "web-test-runner --coverage"
+  }
+}
+```
 
 Useful CLI flags:
 
 ```bash
-npx vitest run path/to/file.spec.ts        # one file
-npx vitest run -t "renders headers"        # tests matching name
-npx vitest --ui                            # browser UI
-npx vitest run --coverage                  # coverage on demand
+web-test-runner "src/**/foo.spec.ts"   # specific files (glob)
+web-test-runner --watch                # watch; press D to debug in a browser, F to filter files
+web-test-runner --coverage             # coverage on demand
+web-test-runner --group default        # run a named browser/group from the config
 ```
 
-Test files are discovered by the `*.spec.ts` / `*.test.ts` suffix. Place them next to the unit under test (project convention — e.g. `app-data-table.ts` ↔ `app-data-tabe.spec.ts`).
+Minimal `web-test-runner.config.mjs`:
+
+```js
+import { esbuildPlugin } from "@web/dev-server-esbuild";
+
+export default {
+  files: "src/**/*.spec.ts", // discovery glob
+  nodeResolve: true, // resolve bare module specifiers
+  plugins: [esbuildPlugin({ ts: true, target: "es2022" })], // transpile TS specs
+  coverage: true,
+};
+```
+
+> **Devtool deps** for this stack: `@web/test-runner`, `@web/dev-server-esbuild`, `mocha`, `sinon`, `@open-wc/testing`, plus `@types/mocha` and `@types/sinon`. (`mocha` and `chai` come in transitively via `@web/test-runner` / `@open-wc/testing`, but listing them is clearer.)
+
+Test files are discovered by the `*.spec.ts` / `*.test.ts` suffix. Place them next to the unit under test (project convention — e.g. `app-data-table.ts` ↔ `app-data-table.spec.ts`).
 
 ---
 
@@ -549,11 +639,11 @@ Test files are discovered by the `*.spec.ts` / `*.test.ts` suffix. Place them ne
 
 The same component test, written once in **this project's stack** and once in **Vue Test Utils**, so the mapping is concrete.
 
-### This project (Lit + @open-wc/testing)
+### This project (Lit + @open-wc/testing + Mocha + Sinon)
 
 ```ts
 import { fixture, html, expect, oneEvent } from "@open-wc/testing";
-import { vi, describe, beforeEach, afterEach, it } from "vitest";
+import sinon from "sinon";
 
 import "./app-data-table"; // register the custom element
 import { ordersStore } from "../stores/orders.store";
@@ -563,11 +653,11 @@ describe("app-data-table", () => {
   const columns = [{ key: "name", label: "Name" }];
 
   beforeEach(() => {
-    vi.spyOn(ordersStore, "getOrders").mockResolvedValue(undefined);
+    sinon.stub(ordersStore, "getOrders").resolves(undefined);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    sinon.restore();
   });
 
   it("renders rows", async () => {
@@ -599,6 +689,22 @@ describe("app-data-table", () => {
     await el.updateComplete; // wait for Lit to re-render
 
     expect(el.shadowRoot!.textContent).to.contain("No data found");
+  });
+
+  it("invokes the action callback with the row", async () => {
+    const onClick = sinon.spy(); // Vitest: vi.fn()
+    const el = await fixture(html`
+      <app-data-table
+        .rows=${rows}
+        .columns=${columns}
+        .actions=${[{ label: "View", icon: {}, onClick }]}
+      ></app-data-table>
+    `);
+
+    el.shadowRoot!.querySelector<HTMLButtonElement>("tbody button")!.click();
+
+    expect(onClick.calledOnce).to.be.true; // Vitest: expect(fn).toHaveBeenCalledTimes(1)
+    expect(onClick.firstCall.args[0]).to.deep.equal(rows[0]); // Vitest: fn.mock.calls[0][0]
   });
 });
 ```
@@ -645,29 +751,45 @@ describe("DataTable", () => {
 
     expect(wrapper.text()).toContain("No data found");
   });
+
+  it("invokes the action callback with the row", async () => {
+    const onClick = vi.fn();
+    const wrapper = mount(DataTable, {
+      props: { rows, columns, actions: [{ label: "View", onClick }] },
+    });
+
+    await wrapper.find("tbody button").trigger("click");
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onClick.mock.calls[0][0]).toEqual(rows[0]);
+  });
 });
 ```
 
 **What changed, line for line:**
 
-| Step          | Lit + @open-wc                                | Vue Test Utils                         |
-| ------------- | --------------------------------------------- | -------------------------------------- |
-| Mount         | `await fixture(html\`…\`)`                    | `mount(Comp, { props })`               |
-| Pass props    | `.rows=${rows}` in template                   | `props: { rows }` option               |
-| Query DOM     | `el.shadowRoot!.querySelectorAll(...)`        | `wrapper.findAll(...)`                 |
-| Length assert | `.to.have.length(1)`                          | `.toHaveLength(1)`                     |
-| Trigger click | `row.click()` (armed via `setTimeout`)        | `await wrapper.trigger("click")`       |
-| Read emitted  | `await oneEvent(el, "row-click")` → `.detail` | `wrapper.emitted("row-click")[0][0]`   |
-| Change prop   | `el.rows = []; await el.updateComplete`       | `await wrapper.setProps({ rows: [] })` |
-| Text assert   | `.shadowRoot!.textContent` `.to.contain(...)` | `wrapper.text()` `.toContain(...)`     |
+| Step          | Lit + @open-wc + Mocha + Sinon                | Vue Test Utils                          |
+| ------------- | --------------------------------------------- | --------------------------------------- |
+| Mount         | `await fixture(html\`…\`)`                     | `mount(Comp, { props })`                |
+| Pass props    | `.rows=${rows}` in template                   | `props: { rows }` option                |
+| Query DOM     | `el.shadowRoot!.querySelectorAll(...)`        | `wrapper.findAll(...)`                  |
+| Length assert | `.to.have.length(1)`                          | `.toHaveLength(1)`                      |
+| Trigger click | `row.click()` (armed via `setTimeout`)        | `await wrapper.trigger("click")`        |
+| Read emitted  | `await oneEvent(el, "row-click")` → `.detail` | `wrapper.emitted("row-click")[0][0]`    |
+| Change prop   | `el.rows = []; await el.updateComplete`       | `await wrapper.setProps({ rows: [] })`  |
+| Make a spy    | `sinon.spy()`                                 | `vi.fn()`                               |
+| Stub a method | `sinon.stub(o, "m").resolves(v)`              | `vi.spyOn(o, "m").mockResolvedValue(v)` |
+| Assert called | `expect(fn.calledOnce).to.be.true`            | `expect(fn).toHaveBeenCalledTimes(1)`   |
+| Restore       | `sinon.restore()`                             | `vi.restoreAllMocks()`                  |
 
 ---
 
-## Quick cheat-sheet (Lit ↔ Vue)
+## Quick cheat-sheet (Lit + Sinon ↔ Vue + Vitest)
 
-| Need                | Lit + @open-wc                                                          | Vue Test Utils                        |
+| Need                | Lit + @open-wc + Mocha + Sinon                                          | Vue + Vitest                          |
 | ------------------- | ----------------------------------------------------------------------- | ------------------------------------- |
-| Mount component     | `await fixture(html\`<x-el .p=${v}></x-el>\`)`                          | `mount(Comp, { props: { p: v } })`    |
+| Mount component     | `await fixture(html\`<x-el .p=${v}></x-el>\`)`                           | `mount(Comp, { props: { p: v } })`    |
+| Once-before hook    | `before(...)`                                                           | `beforeAll(...)`                      |
 | Wait for re-render  | `await el.updateComplete`                                               | `await nextTick()`                    |
 | Drain promises      | `await Promise.resolve()` / `await nextFrame()`                         | `await flushPromises()`               |
 | Query rendered DOM  | `el.shadowRoot!.querySelector(...)`                                     | `wrapper.find(...)`                   |
@@ -679,10 +801,14 @@ describe("DataTable", () => {
 | Click               | `el.click()`                                                            | `await wrapper.trigger("click")`      |
 | Set input value     | `input.value="x"; input.dispatchEvent(new Event("input"))`              | `await wrapper.setValue("x")`         |
 | Change a prop       | `el.p = v; await el.updateComplete`                                     | `await wrapper.setProps({ p: v })`    |
-| Mock a function     | `const fn = vi.fn()`                                                    | `const fn = vi.fn()` (same)           |
-| Spy on a method     | `vi.spyOn(obj, "m").mockResolvedValue(...)`                             | `vi.spyOn(obj, "m")...` (same)        |
-| Assert call count   | `expect(fn.mock.calls).to.have.length(1)`                               | `expect(fn).toHaveBeenCalledTimes(1)` |
-| Restore mocks       | `afterEach(() => vi.restoreAllMocks())`                                 | same                                  |
+| Make a spy          | `const fn = sinon.spy()`                                                | `const fn = vi.fn()`                  |
+| Spy on a method     | `sinon.spy(obj, "m")`                                                   | `vi.spyOn(obj, "m")`                  |
+| Stub a method       | `sinon.stub(obj, "m").resolves(v)`                                      | `vi.spyOn(obj, "m").mockResolvedValue(v)` |
+| Assert call count   | `expect(fn.callCount).to.equal(1)` / `expect(fn.calledOnce).to.be.true`| `expect(fn).toHaveBeenCalledTimes(1)` |
+| Assert called with  | `expect(fn.calledWith(x)).to.be.true`                                   | `expect(fn).toHaveBeenCalledWith(x)`  |
+| Read call args      | `fn.firstCall.args[0]`                                                  | `fn.mock.calls[0][0]`                 |
+| Restore mocks       | `afterEach(() => sinon.restore())`                                      | `afterEach(() => vi.restoreAllMocks())` |
+| Fake timers         | `const clock = sinon.useFakeTimers(); clock.tick(ms)`                   | `vi.useFakeTimers(); vi.advanceTimersByTime(ms)` |
 | Strict equal        | `expect(a).to.equal(b)`                                                 | `expect(a).toBe(b)`                   |
 | Deep equal          | `expect(a).to.deep.equal(b)`                                            | `expect(a).toEqual(b)`                |
 | Contains text       | `expect(text).to.contain("...")`                                        | `expect(text).toContain("...")`       |
