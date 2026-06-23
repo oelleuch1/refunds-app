@@ -32,11 +32,19 @@ export class OrdersPage extends LitElement {
     this.requestUpdate();
   }
 
+  @state()
+  private data = [
+    { title: "Select item", info: "Choose item", icon: "icon" },
+    { title: "Reason", info: "Choose item", icon: "icon" },
+    { title: "Explanation", info: "Choose item", icon: "icon" },
+  ];
+
   protected render() {
     return html`
       <div
         class="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700"
       >
+        <app-stepper .data=${this.data}></app-stepper>
         <!-- Header -->
         <header>
           <h1 class="text-3xl font-bold text-text-primary tracking-tight mb-2">
