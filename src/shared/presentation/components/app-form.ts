@@ -97,3 +97,7 @@ export class AppForm extends LitElement {
     `;
   }
 }
+
+// 1. Create the returns model and add url /returns/new for the return form
+// 2. Improve the stepper up and create the returns page
+// 3. Steps by step creation and data validation

@@ -31,10 +31,10 @@ export class AppStepper extends LitElement {
     return html` <div>
       ${this.steps.map(
         (step, index) => html`
-          <div @click=${handleStepClick(index)}>
+          <div @click=${this.handleStepClick(index)}>
             <div>${step.title} - ${step.info}</div>
 
-            ${isStepDone(index)
+            ${this.isStepDone(index)
               ? html`<app-icon .icon=${Check} />`
               : html`<div>${index + 1}</div>`}
           </div>
