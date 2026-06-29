@@ -1,8 +1,8 @@
 import { html, LitElement } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement } from "lit/decorators.js";
 
 import { tailwindStyles } from "@styles/tailwind-styles";
-import { Search, Eye, Trash } from "lucide";
+import { Search, Eye, Trash, Undo2 } from "lucide";
 
 import "@shared/presentation/components/app-data-table";
 import "@shared/presentation/components/app-icon";
@@ -10,6 +10,9 @@ import { ordersStore } from "../stores/orders.store";
 
 import "@shared/presentation/components/app-form";
 import "@shared/presentation/components/app-stepper";
+
+import { AppRouter } from "@app/app.router";
+import { RETURNS_PATH } from "@features/returns/returns.routes.ts";
 
 export type Order = {
   id: string;
@@ -33,23 +36,12 @@ export class OrdersPage extends LitElement {
     this.requestUpdate();
   }
 
-  @state()
-  private steps = [
-    { title: "Select item", info: "Choose item" },
-    { title: "Reason", info: "Choose item" },
-    { title: "Explanation", info: "Choose item" },
-  ];
-
-  @state()
-  private currentStep = 0;
+  startReturnMethod(id: string): void {
+    AppRouter.navigate(`${RETURNS_PATH}/new/${id}`);
+  }
 
   protected render() {
     return html`
-      <app-stepper
-        .steps=${this.steps}
-        .currentStep=${this.currentStep}
-      ></app-stepper>
-
       <div
         class="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700"
       >
@@ -131,6 +123,13 @@ export class OrdersPage extends LitElement {
               icon: Trash,
               onClick: (row) => {
                 console.log("Delete order:", row);
+              },
+            },
+            {
+              label: "Return",
+              icon: Undo2,
+              onClick: (row) => {
+                this.startReturnMethod(row.id);
               },
             },
           ]}
