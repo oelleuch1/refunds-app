@@ -31,8 +31,6 @@ export class CustomersPage extends LitElement {
   @state()
   private to: number = 9;
 
-  static styles = [tailwindStyles];
-
   async getCustomers() {
     const {
       data: customers,

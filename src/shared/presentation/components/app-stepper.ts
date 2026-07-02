@@ -2,6 +2,7 @@ import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { Check } from "lucide";
 
+import { tailwindStyles } from "@styles/tailwind-styles";
 import "@shared/presentation/components/app-icon";
 
 export interface AppStepperItem {
@@ -11,6 +12,8 @@ export interface AppStepperItem {
 
 @customElement("app-stepper")
 export class AppStepper extends LitElement {
+  static styles = [tailwindStyles];
+
   @property({ type: Array })
   steps: AppStepperItem[] = [];
 
@@ -42,18 +45,18 @@ export class AppStepper extends LitElement {
     const base =
       "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all";
 
-    // Active step: colored circle with its index, glowing + ringed (the emphasized one).
+    // Active step: gradient circle, glowing + ringed (the emphasized one).
     if (this.isStepActive(index)) {
-      return `${base} bg-brand-gradient text-white shadow-brand ring-4 ring-brand/30`;
+      return `${base} bg-gradient-violet text-white shadow-glow ring-4 ring-primary/30`;
     }
 
-    // Done step: flat colored circle with a Lucide Check, clickable to go back.
+    // Done step: flat gradient circle with a Check, clickable to go back.
     if (this.isStepDone(index)) {
-      return `${base} bg-brand-gradient text-white cursor-pointer`;
+      return `${base} bg-gradient-violet text-white cursor-pointer`;
     }
 
-    // Future step: muted circle with its index, not colored.
-    return `${base} bg-surface-card text-text-dim border border-white/10`;
+    // Future step: muted circle with its index.
+    return `${base} bg-muted text-muted-foreground border border-border`;
   }
 
   protected render() {
@@ -76,12 +79,16 @@ export class AppStepper extends LitElement {
                 <span
                   class="text-sm font-medium ${this.isStepActive(index) ||
                   this.isStepDone(index)
-                    ? "text-text-primary"
-                    : "text-text-dim"}"
+                    ? "text-foreground"
+                    : "text-muted-foreground"}"
                   >${step.title}</span
                 >
-                <span class="text-xs text-text-dim">${step.info}</span>
+                <span class="text-xs text-muted-foreground">${step.info}</span>
               </div>
+
+              ${index < this.steps.length - 1
+                ? html`<div class="h-px flex-1 min-w-6 bg-border"></div>`
+                : ""}
             </div>
           `,
         )}
@@ -89,7 +96,3 @@ export class AppStepper extends LitElement {
     `;
   }
 }
-
-// 1. Create the returns model and add url /returns/new for the return form
-// 2. Improve the stepper up and create the returns page
-// 3. Steps by step creation and data validation
