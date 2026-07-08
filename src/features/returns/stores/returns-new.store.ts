@@ -48,7 +48,7 @@ export class ReturnsNewStore {
         .eq("order_id", orderId);
 
       this.state.items = (items ?? []).map((item) => ({
-        id: String(item.id),
+        id: item.id,
         name: item.product_name,
         sku: item.sku,
         unitPrice: Number(item.unit_price),
